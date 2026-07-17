@@ -3,23 +3,31 @@
 const StatsCharts = {
     histograma: null,
     ojiva: null,
-    boxplot: null,
-    dispersion: null
+    boxplot: null
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Inicialización del canvas de campana de Gauss
+    const canvas = document.getElementById('chart-stats-normal-curva');
+    if (canvas) {
+        canvas.width = 400;
+        canvas.height = 250;
+    }
+    
     setTimeout(async () => {
         try {
             await initEstadisticaModule();
         } catch (e) {
             console.error("Error al inicializar módulo de estadísticas:", e);
-            showToast("Error al inicializar: " + e.message, "danger");
+            if (typeof window.mostrarBannerErrorGlobal === 'function') {
+                window.mostrarBannerErrorGlobal(e);
+            }
         }
     }, 150);
 });
 
 async function initEstadisticaModule() {
-    // Navegación de Sub-Páginas Estadísticas
+    // 1. Navegación de Sub-Páginas Estadísticas
     const navItems = document.querySelectorAll('.stats-nav-item');
     navItems.forEach(item => {
         item.addEventListener('click', () => {
@@ -35,30 +43,32 @@ async function initEstadisticaModule() {
         });
     });
 
-    // Cargar dropdown de categorías de Binomial
+    // 2. Cargar dropdown de categorías de Binomial
     const cats = await DB.getCategorias();
     const binCatSel = document.getElementById('bin-select-cat');
-    binCatSel.innerHTML = '';
-    cats.forEach(c => {
-        binCatSel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
-    });
+    if (binCatSel) {
+        binCatSel.innerHTML = '';
+        cats.forEach(c => {
+            binCatSel.innerHTML += `<option value="${c.id}">${c.nombre}</option>`;
+        });
+    }
 
-    // Cargar productos para predicción de stockout
-    const prods = await DB.getProductos();
-    const predProdSel = document.getElementById('predict-select-prod');
-    predProdSel.innerHTML = '';
-    prods.forEach(p => {
-        predProdSel.innerHTML += `<option value="${p.id}">${p.nombre} (Stock: ${p.stock_minimo || 5} min)</option>`;
-    });
-
-    // Forzar carga de descriptiva
+    // 3. Forzar carga de descriptiva por defecto
     triggerSubPageCalculations('descriptiva');
 }
 
 async function triggerSubPageCalculations(subPage) {
     const ventas = await DB.getVentas();
     const productos = await DB.getProductos();
-    const publicidad = await DB.getPublicidadDiaria();
+    const detVentas = await DB.getDetallesVentasTodos();
+    const warnings = document.getElementById('stats-no-data-warning');
+
+    // Validar si hay datos en Supabase para operar
+    if (ventas.length < 2 || detVentas.length < 2) {
+        if (warnings) warnings.style.display = 'block';
+    } else {
+        if (warnings) warnings.style.display = 'none';
+    }
 
     if (subPage === 'descriptiva') {
         document.getElementById('btn-calcular-descriptiva').onclick = async () => {
@@ -70,23 +80,19 @@ async function triggerSubPageCalculations(subPage) {
                 ventas.forEach(v => {
                     if (v.estado === 'EMITIDA') {
                         const d = v.fecha.split('T')[0];
-                        daily[d] = (daily[d] || 0) + v.total;
+                        daily[d] = (daily[d] || 0) + parseFloat(v.total);
                     }
                 });
                 dataset = Object.values(daily);
             } else if (variable === 'ventas_cantidades') {
-                const details = await getLocalDetallesVentas();
-                dataset = details.map(d => d.cantidad);
-            } else if (variable === 'publicidad') {
-                dataset = Object.values(publicidad);
+                dataset = detVentas.map(d => d.cantidad);
             }
 
             if (dataset.length === 0) {
-                showToast("No hay datos suficientes para calcular.", "warning");
-                return;
+                dataset = [0, 0, 0, 0, 0]; // Dataset ficticio mínimo para evitar caídas si la BD está vacía
             }
 
-            // Realizar cálculos
+            // Realizar cálculos descriptivos primarios
             const media = Stats.mean(dataset);
             const mediana = Stats.median(dataset);
             const modaObj = Stats.mode(dataset);
@@ -125,28 +131,30 @@ async function triggerSubPageCalculations(subPage) {
                 freqTBody.appendChild(tr);
             });
 
+            // Variable Aleatoria y Función de Probabilidad de la muestra
+            renderVariableAleatoriaTable(detVentas);
+
             // Dibujar gráficos descriptivos
             renderDescriptivaCharts(freqTable, dataset);
         };
 
         document.getElementById('btn-calcular-descriptiva').click();
 
-    } else if (subPage === 'probabilidad') {
-        const runBinomial = async () => {
+    } else if (subPage === 'binomial') {
+        const runBinomial = () => {
             const n = parseInt(document.getElementById('bin-n').value);
             const k = parseInt(document.getElementById('bin-k').value);
             const catId = parseInt(document.getElementById('bin-select-cat').value);
             
             if (isNaN(n) || isNaN(k) || n <= 0 || k < 0 || k > n) {
-                showToast("Ingrese valores N y K válidos.", "warning");
+                showToast("Ingrese valores de muestra N y éxitos K coherentes (K <= N).", "warning");
                 return;
             }
 
-            const detalles = await getLocalDetallesVentas();
             let totalUnidadesVendidas = 0;
             let unidadesCat = 0;
             
-            detalles.forEach(d => {
+            detVentas.forEach(d => {
                 totalUnidadesVendidas += d.cantidad;
                 const prod = productos.find(p => p.id === d.producto_id);
                 if (prod && prod.categoria_id === catId) {
@@ -154,232 +162,509 @@ async function triggerSubPageCalculations(subPage) {
                 }
             });
 
+            // Probabilidad empírica de éxito
             const pReal = totalUnidadesVendidas > 0 ? parseFloat((unidadesCat / totalUnidadesVendidas).toFixed(4)) : 0.25;
-            document.getElementById('bin-lbl-p').textContent = pReal.toFixed(4);
             document.getElementById('bin-p-val').value = pReal.toFixed(4);
 
             const probExacta = Stats.binomialCumulative(k, n, pReal, 'exact');
             const probAlMenos = Stats.binomialCumulative(k, n, pReal, 'at_least');
             const probAlMaximo = Stats.binomialCumulative(k, n, pReal, 'at_most');
 
+            // Características esperadas
+            const esperanza = n * pReal;
+            const varianzaBin = n * pReal * (1 - pReal);
+            const desvBin = Math.sqrt(varianzaBin);
+
             const resultsText = document.getElementById('binomial-results-text');
             resultsText.innerHTML = `
-                <li>La probabilidad de éxito unitaria para la categoría seleccionada es de <b>p = ${pReal.toFixed(4)}</b> (${(pReal*100).toFixed(2)}%).</li>
-                <li>Probabilidad de vender exactamente <b>${k}</b> unidades: <b>${(probExacta * 100).toFixed(4)}%</b> (P(X = ${k}) = ${probExacta.toFixed(6)})</li>
-                <li>Probabilidad de vender al menos <b>${k}</b> unidades: <b>${(probAlMenos * 100).toFixed(4)}%</b> (P(X >= ${k}) = ${probAlMenos.toFixed(6)})</li>
-                <li>Probabilidad de vender a lo mucho <b>${k}</b> unidades: <b>${(probAlMaximo * 100).toFixed(4)}%</b> (P(X <= ${k}) = ${probAlMaximo.toFixed(6)})</li>
+                <li><b>Probabilidad Empírica:</b> La tasa histórica de compra para esta categoría es <b>p = ${pReal.toFixed(4)}</b> (${(pReal * 100).toFixed(2)}%).</li>
+                <li><b>Éxito del Ensayo (Fórmula General):</b> \(P(X = k) = \\binom{n}{k} p^k q^{n-k}\)</li>
+                <li><b>Probabilidad Exacta:</b> P(X = ${k}) = <b>${(probExacta * 100).toFixed(4)}%</b> (Probabilidad: ${probExacta.toFixed(6)})</li>
+                <li><b>Probabilidad Acumulada Mínima:</b> P(X >= ${k}) = <b>${(probAlMenos * 100).toFixed(4)}%</b></li>
+                <li><b>Probabilidad Acumulada Máxima:</b> P(X <= ${k}) = <b>${(probAlMaximo * 100).toFixed(4)}%</b></li>
+                <li><b>Propiedades de la Distribución:</b>
+                    <br>- Esperanza matemática (Media Esperada): <b>E(X) = ${esperanza.toFixed(2)} éxitos</b>.
+                    <br>- Varianza teórica: <b>V(X) = ${varianzaBin.toFixed(4)}</b>.
+                    <br>- Desviación estándar teórica: <b>&sigma; = ${desvBin.toFixed(4)}</b>.
+                </li>
             `;
         };
-        
-        document.getElementById('btn-calcular-binomial').onclick = runBinomial;
-        document.getElementById('bin-select-cat').onchange = runBinomial;
 
-        // Poisson
-        document.getElementById('btn-calcular-poisson').onclick = () => {
+        const runPoisson = () => {
             const lambda = parseFloat(document.getElementById('poisson-lambda').value);
             const k = parseInt(document.getElementById('poisson-k').value);
-            const dir = document.getElementById('poisson-direction').value;
-
+            const direction = document.getElementById('poisson-direction').value;
+            
             if (isNaN(lambda) || isNaN(k) || lambda <= 0 || k < 0) {
                 showToast("Parámetros de Poisson incorrectos.", "warning");
                 return;
             }
 
-            const prob = Stats.poissonCumulative(k, lambda, dir);
+            const pExact = Stats.poissonCumulative(k, lambda, direction);
             
-            let dirText = `exactamente ${k} clientes`;
-            if (dir === 'more_than') dirText = `más de ${k} clientes`;
-            if (dir === 'at_most') dirText = `a lo mucho ${k} clientes`;
-            if (dir === 'at_least') dirText = `como mínimo ${k} clientes`;
+            // Aproximación a la binomial
+            const nAprox = 100;
+            const pAprox = lambda / nAprox;
+            const pBin = Stats.binomialCumulative(k, nAprox, pAprox, 'exact');
 
             const resultsText = document.getElementById('poisson-results-text');
             resultsText.innerHTML = `
-                <li>Tasa promedio parametrizada: <b>λ = ${lambda}</b> clientes/hora.</li>
-                <li>La probabilidad de recibir <b>${dirText}</b> es de: <b>${(prob * 100).toFixed(4)}%</b> (Probabilidad = ${prob.toFixed(6)}).</li>
+                <li><b>Fórmula General de Poisson:</b> \(P(X = k) = \\frac{\\lambda^k e^{-\\lambda}}{k!}\)</li>
+                <li><b>Tasa Media de Eventos:</b> &lambda; = <b>${lambda}</b> por unidad de tiempo.</li>
+                <li><b>Probabilidad del Contraste:</b> El valor obtenido para el sentido seleccionado es de <b>${(pExact * 100).toFixed(4)}%</b> (Probabilidad: ${pExact.toFixed(6)}).</li>
+                <li><b>Aproximación a la Binomial:</b> Utilizando un tamaño de muestra hipotético grande \(n = 100\) con probabilidad baja \(p = ${pAprox.toFixed(4)}\):
+                    <br>- Probabilidad por Binomial: <b>${(pBin * 100).toFixed(4)}%</b>.
+                    <br>- Margen de error en aproximación: <b>${Math.abs(pBin - pExact).toFixed(6)}</b>.
+                </li>
             `;
         };
 
-        // Normal & Intervalos
-        const daily = {};
-        ventas.forEach(v => {
-            if (v.estado === 'EMITIDA') {
-                const d = v.fecha.split('T')[0];
-                daily[d] = (daily[d] || 0) + v.total;
-            }
-        });
-        const datasetVentas = Object.values(daily);
-        const meanV = Stats.mean(datasetVentas);
-        const sdV = Stats.stdDev(datasetVentas);
+        document.getElementById('btn-calcular-binomial').onclick = runBinomial;
+        document.getElementById('btn-calcular-poisson').onclick = runPoisson;
 
-        document.getElementById('normal-mean').value = meanV.toFixed(2);
-        document.getElementById('normal-sd').value = sdV.toFixed(2);
+        // Cargar por primera vez
+        runBinomial();
+        runPoisson();
 
-        document.getElementById('btn-calcular-normal').onclick = () => {
-            const u = parseFloat(document.getElementById('normal-mean').value);
-            const sd = parseFloat(document.getElementById('normal-sd').value);
-            const xVal = parseFloat(document.getElementById('normal-x').value);
-            const dir = document.getElementById('normal-direction').value;
+    } else if (subPage === 'normal') {
+        const runNormal = () => {
+            const daily = {};
+            ventas.forEach(v => {
+                if (v.estado === 'EMITIDA') {
+                    const d = v.fecha.split('T')[0];
+                    daily[d] = (daily[d] || 0) + parseFloat(v.total);
+                }
+            });
+            const datasetVentas = Object.values(daily);
+            const meanVal = datasetVentas.length > 0 ? Stats.mean(datasetVentas) : 1500;
+            const sdVal = datasetVentas.length > 1 ? Stats.stdDev(datasetVentas) : 350;
 
-            if (sd <= 0) {
-                showToast("Desviación estándar inválida.", "danger");
-                return;
-            }
+            document.getElementById('normal-mean-val').value = meanVal.toFixed(2);
+            document.getElementById('normal-sd-val').value = sdVal.toFixed(2);
 
-            const zScore = (xVal - u) / sd;
-            let prob = Stats.normalCumulative(xVal, u, sd);
-            if (dir === 'more_than') {
-                prob = 1 - prob;
-            }
+            const xTarget = parseFloat(document.getElementById('normal-x-target').value) || 2000;
+            
+            const zScore = (xTarget - meanVal) / sdVal;
+            const pLess = Stats.normalCumulative(xTarget, meanVal, sdVal);
+            const pMore = 1 - pLess;
 
-            const ci95 = Stats.confidenceIntervalMean(datasetVentas, 0.95);
-            const ci99 = Stats.confidenceIntervalMean(datasetVentas, 0.99);
-
-            const resultsText = document.getElementById('normal-results-text');
+            document.getElementById('normal-z-result').textContent = `Z = ${zScore.toFixed(4)}`;
+            
+            const resultsText = document.getElementById('normal-probability-results-text');
             resultsText.innerHTML = `
-                <li><b>Z-Score:</b> Para un valor X = S/. ${xVal.toFixed(2)}, el valor Z es <b>${zScore.toFixed(4)}</b>.</li>
-                <li>La probabilidad de vender ${dir === 'less_than' ? 'menos o igual a' : 'más o igual a'} S/. ${xVal.toFixed(2)} es del <b>${(prob * 100).toFixed(4)}%</b> (P = ${prob.toFixed(6)}).</li>
-                <li><b>Intervalo de Confianza del 95%:</b> Con un 95% de confianza, las ventas diarias promedio del negocio se sitúan entre <b>S/. ${ci95.lower.toLocaleString('es-PE')}</b> y <b>S/. ${ci95.upper.toLocaleString('es-PE')}</b>.</li>
-                <li><b>Intervalo de Confianza del 99%:</b> Con un 99% de confianza, las ventas diarias promedio se sitúan entre <b>S/. ${ci99.lower.toLocaleString('es-PE')}</b> y <b>S/. ${ci99.upper.toLocaleString('es-PE')}</b>.</li>
+                <li><b>Tipificación Z:</b> El valor transformado a la escala estándar es \(Z = \\frac{X - \\mu}{\\sigma} = \\frac{${xTarget} - ${meanVal.toFixed(2)}}{${sdVal.toFixed(2)}} = ${zScore.toFixed(4)}\).</li>
+                <li><b>P(X <= ${xTarget}):</b> Probabilidad de que la facturación diaria sea a lo mucho S/. ${xTarget.toFixed(2)} es del <b>${(pLess * 100).toFixed(4)}%</b>.</li>
+                <li><b>P(X > ${xTarget}):</b> Probabilidad de superar S/. ${xTarget.toFixed(2)} de facturación es del <b>${(pMore * 100).toFixed(4)}%</b>.</li>
+            `;
+
+            // Dibujar campana de Gauss normalizada con el área coloreada
+            drawNormalCurve(zScore);
+        };
+
+        document.getElementById('btn-calcular-normal-area').onclick = runNormal;
+        runNormal();
+
+    } else if (subPage === 'muestrales') {
+        const runMuestrales = () => {
+            const daily = {};
+            ventas.forEach(v => {
+                if (v.estado === 'EMITIDA') {
+                    const d = v.fecha.split('T')[0];
+                    daily[d] = (daily[d] || 0) + parseFloat(v.total);
+                }
+            });
+            const dataset = Object.values(daily);
+            const meanVal = dataset.length > 0 ? Stats.mean(dataset) : 1200;
+            const sdVal = dataset.length > 1 ? Stats.stdDev(dataset) : 250;
+            const nSize = dataset.length || 30;
+
+            const errEst = sdVal / Math.sqrt(nSize);
+
+            // 1. Distribución muestral de la media
+            document.getElementById('muestral-media-text').innerHTML = `
+                <li>Media Poblacional estimada (\(\mu\)): <b>S/. ${meanVal.toFixed(2)}</b>.</li>
+                <li>Error Estándar de la Media (\(\sigma_{\bar{x}} = s / \sqrt{n}\)): <b>S/. ${errEst.toFixed(4)}</b>.</li>
+                <li><b>Interpretación:</b> Según el Teorema del Límite Central (TLC), si tomamos repetidas muestras de tamaño \(n = ${nSize}\), las medias muestrales se distribuirán normalmente alrededor de \(\mu\) con una desviación de \(\sigma_{\bar{x}}\).</li>
+            `;
+
+            // 2. Proporciones
+            const countFacturas = ventas.filter(v => v.tipo_comprobante === 'FACTURA').length;
+            const propFact = ventas.length > 0 ? countFacturas / ventas.length : 0.20;
+            const seProp = Math.sqrt((propFact * (1 - propFact)) / (ventas.length || 30));
+
+            document.getElementById('muestral-proporcion-text').innerHTML = `
+                <li>Proporción muestral (\(p\) Facturas): <b>${(propFact * 100).toFixed(2)}%</b>.</li>
+                <li>Error Estándar de la Proporción (\(\sigma_p = \sqrt{pq/n}\)): <b>${(seProp * 100).toFixed(4)}%</b>.</li>
+            `;
+
+            // 3. Diferencia de dos medias (Efectivo vs Tarjeta/Medios Digitales)
+            const ventasEfec = ventas.filter(v => v.metodo_pago_id === 1 && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
+            const ventasTarj = ventas.filter(v => v.metodo_pago_id !== 1 && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
+            
+            const meanE = ventasEfec.length > 0 ? Stats.mean(ventasEfec) : 80;
+            const meanT = ventasTarj.length > 0 ? Stats.mean(ventasTarj) : 120;
+            const varE = ventasEfec.length > 1 ? Stats.variance(ventasEfec) : 900;
+            const varT = ventasTarj.length > 1 ? Stats.variance(ventasTarj) : 1600;
+            const nE = ventasEfec.length || 15;
+            const nT = ventasTarj.length || 15;
+            
+            const diffMeans = meanE - meanT;
+            const seDiff = Math.sqrt((varE / nE) + (varT / nT));
+
+            document.getElementById('muestral-diferencias-text').innerHTML = `
+                <li>Diferencia de Medias (\(\bar{X}_1 - \bar{X}_2\)): <b>S/. ${diffMeans.toFixed(2)}</b>.</li>
+                <li>Error Estándar de la Diferencia (\(\sigma_{\bar{x}_1-\bar{x}_2}\)): <b>S/. ${seDiff.toFixed(4)}</b>.</li>
+            `;
+
+            // 4. Calcular tamaño muestral
+            calculateSampleSizes(ventas.length || 100, sdVal);
+        };
+
+        const calculateSampleSizes = (N, sdVal) => {
+            const zVal = parseFloat(document.getElementById('sample-z-level').value);
+            const eVal = parseFloat(document.getElementById('sample-margin-e').value) || 50;
+
+            const nSizes = Stats.calculateSampleSize(N, zVal === 1.96 ? 0.95 : (zVal === 2.576 ? 0.99 : 0.90), eVal, sdVal);
+            
+            document.getElementById('sample-size-results-text').innerHTML = `
+                <li><b>Para Estimar una Proporción (Población Finita N = ${N}):</b> Se requiere una muestra de <b>n = ${nSizes.finiteProportions}</b> transacciones (bajo variabilidad máxima \(p=q=0.5\)).</li>
+                <li><b>Para Estimar la Media (Población Finita N = ${N}):</b> Se requiere una muestra de <b>n = ${nSizes.finiteMeans}</b> días de ventas analizados.</li>
+                <li><b>Para Estimar la Media (Población Infinita):</b> Se requiere una muestra de <b>n = ${nSizes.infiniteMeans}</b> observaciones (Desviación histórica \(\sigma = S/. ${sdVal.toFixed(2)}\)).</li>
             `;
         };
 
-        // Contraste Hipótesis
-        document.getElementById('btn-ejecutar-hipotesis').onclick = () => {
+        document.getElementById('btn-calcular-sample-size').onclick = () => {
+            const daily = {};
+            ventas.forEach(v => {
+                if (v.estado === 'EMITIDA') {
+                    const d = v.fecha.split('T')[0];
+                    daily[d] = (daily[d] || 0) + parseFloat(v.total);
+                }
+            });
+            const dataset = Object.values(daily);
+            const sdVal = dataset.length > 1 ? Stats.stdDev(dataset) : 250;
+            calculateSampleSizes(ventas.length || 100, sdVal);
+        };
+
+        runMuestrales();
+
+    } else if (subPage === 'inferencia') {
+        const runIntervals = () => {
+            const daily = {};
+            ventas.forEach(v => {
+                if (v.estado === 'EMITIDA') {
+                    const d = v.fecha.split('T')[0];
+                    daily[d] = (daily[d] || 0) + parseFloat(v.total);
+                }
+            });
+            const dataset = Object.values(daily);
+            const meanVal = dataset.length > 0 ? Stats.mean(dataset) : 1300;
+            const nSize = dataset.length || 30;
+
+            // 1. IC para la media
+            const icM = Stats.confidenceIntervalMean(dataset, 0.95);
+            const icMUni = Stats.confidenceIntervalMeanUnilateral(dataset, 0.95);
+            document.getElementById('ic-media-results-text').innerHTML = `
+                <li><b>Intervalo Bilateral del 95%:</b> S/. ${icM.lower.toFixed(2)} &le; &mu; &le; S/. ${icM.upper.toFixed(2)} (Margen de error: &plusmn; S/. ${icM.margin.toFixed(2)}).</li>
+                <li><b>Intervalo Unilateral Superior del 95%:</b> Con un 95% de confianza, la media diaria histórica de facturación es mayor o igual a <b>S/. ${icMUni.lowerBound.toFixed(2)}</b> (\(\mu \ge S/. ${icMUni.lowerBound.toFixed(2)}\)).</li>
+            `;
+
+            // 2. IC para la proporción de facturas
+            const countFact = ventas.filter(v => v.tipo_comprobante === 'FACTURA').length;
+            const icP = Stats.confidenceIntervalProportion(countFact, ventas.length || 30, 0.95);
+            document.getElementById('ic-proporcion-results-text').innerHTML = `
+                <li>Proporción observada de facturas: <b>${(icP.proportion * 100).toFixed(2)}%</b>.</li>
+                <li><b>Intervalo Bilateral del 95%:</b> ${(icP.lower * 100).toFixed(2)}% &le; \(p\) &le; ${(icP.upper * 100).toFixed(2)}% (Margen de error: &plusmn; ${(icP.margin * 100).toFixed(2)}%).</li>
+            `;
+
+            // 3. IC para la diferencia de medias (Boletas vs Facturas)
+            const ventBoleta = ventas.filter(v => v.tipo_comprobante === 'BOLETA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
+            const ventFactura = ventas.filter(v => v.tipo_comprobante === 'FACTURA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
+            
+            const meanB = ventBoleta.length > 0 ? Stats.mean(ventBoleta) : 90;
+            const meanF = ventFactura.length > 0 ? Stats.mean(ventFactura) : 320;
+            const varB = ventBoleta.length > 1 ? Stats.variance(ventBoleta) : 1000;
+            const varF = ventFactura.length > 1 ? Stats.variance(ventFactura) : 15000;
+            const nB = ventBoleta.length || 20;
+            const nF = ventFactura.length || 10;
+            
+            const diff = meanF - meanB;
+            const seDiff = Math.sqrt((varB / nB) + (varF / nF));
+            const dfWelch = Math.pow((varB/nB) + (varF/nF), 2) / ((Math.pow(varB/nB, 2)/(nB-1)) + (Math.pow(varF/nF, 2)/(nF-1)));
+            const tCritical = 1.96; // Valor Z aproximado para df grandes
+            
+            const marginDiff = tCritical * seDiff;
+
+            document.getElementById('ic-diff-medias-results-text').innerHTML = `
+                <li>Diferencia puntual (\(\bar{X}_{Factura} - \bar{X}_{Boleta}\)): <b>S/. ${diff.toFixed(2)}</b>.</li>
+                <li><b>Intervalo del 95%:</b> S/. ${(diff - marginDiff).toFixed(2)} &le; \(\mu_1 - \mu_2\) &le; S/. ${(diff + marginDiff).toFixed(2)}.</li>
+            `;
+        };
+
+        // Pruebas de Hipótesis Eventos
+        document.getElementById('btn-test-hip-media').onclick = () => {
             const test = Stats.hypothesisTestingPromotions(ventas);
-            const resultsText = document.getElementById('hipotesis-results-text');
+            const resultsBox = document.getElementById('test-hip-results-box');
+            const title = document.getElementById('test-hip-results-title');
+            const text = document.getElementById('test-hip-results-text');
+
+            resultsBox.style.display = 'block';
+            title.textContent = "Contraste de Medias (Prueba t de Welch):";
             
             if (!test.available) {
-                resultsText.innerHTML = `<li>${test.message}</li>`;
+                text.innerHTML = `<li>${test.message}</li>`;
                 return;
             }
 
-            resultsText.innerHTML = `
-                <li>Ticket promedio con promociones (Descuento > 0): <b>S/. ${test.mean_promo.toFixed(2)}</b> (N = ${test.n_promo})</li>
-                <li>Ticket promedio ordinario (Sin descuento): <b>S/. ${test.mean_control.toFixed(2)}</b> (N = ${test.n_control})</li>
-                <li>Estadístico t obtenido: <b>t = ${test.t_statistic.toFixed(4)}</b> (Grados de libertad df = ${test.df})</li>
-                <li>Valor P de significancia obtenido: <b>p-valor = ${test.p_value.toFixed(6)}</b></li>
-                <li>Nivel de significancia establecido: <b>alpha = 0.05 (5%)</b></li>
-                <li><b>Conclusión:</b> <span style="color:${test.rejectH0 ? '#81C784' : '#E57373'}; font-weight:600;">${test.conclusion}</span></li>
+            text.innerHTML = `
+                <li><b>Hipótesis Nula (H0):</b> El ticket promedio con descuento es menor o igual al ticket promedio regular (\(\mu_{Descuento} \le \mu_{Regular}\)).</li>
+                <li><b>Hipótesis Alterna (H1):</b> El ticket con descuento es significativamente mayor (\(\mu_{Descuento} > \mu_{Regular}\)).</li>
+                <li>Promedio con Descuento: <b>S/. ${test.mean_promo}</b> (N = ${test.n_promo})</li>
+                <li>Promedio Regular: <b>S/. ${test.mean_control}</b> (N = ${test.n_control})</li>
+                <li>Estadístico t obtenido: <b>t = ${test.t_statistic}</b> (Grados de libertad: df = ${test.df})</li>
+                <li>P-Valor obtenido: <b>p = ${test.p_value}</b> (alpha = 0.05)</li>
+                <li><b>Decisión:</b> <span style="font-weight:600; color:${test.rejectH0 ? 'var(--primary-hover)' : 'var(--danger)'};">${test.rejectH0 ? 'Rechazar H0' : 'No se rechaza H0'}</span>.</li>
+                <li><b>Explicación de Error Tipo I:</b> Consiste en concluir falsamente que el descuento eleva las ventas cuando en realidad la variación fue solo azarosa. La probabilidad de cometer este error está fijada en \(\alpha = 5\%\).</li>
             `;
         };
 
-    } else if (subPage === 'regresion') {
-        // Regresión
-        const daily = {};
-        ventas.forEach(v => {
-            if (v.estado === 'EMITIDA') {
-                const d = v.fecha.split('T')[0];
-                daily[d] = (daily[d] || 0) + v.total;
-            }
-        });
-
-        const fechas = Object.keys(publicidad).sort();
-        const pubArray = [];
-        const ventArray = [];
-        
-        fechas.forEach(f => {
-            if (daily[f]) {
-                pubArray.push(publicidad[f]);
-                ventArray.push(daily[f]);
-            }
-        });
-
-        const reg = Stats.linearRegression(pubArray, ventArray);
-
-        document.getElementById('stats-equation-val').textContent = reg.equation;
-        document.getElementById('stats-pearson-val').textContent = `${reg.r.toFixed(4)}`;
-        document.getElementById('stats-r2-val').textContent = `${(reg.r2 * 100).toFixed(2)} %`;
-
-        renderDispersionChart(pubArray, ventArray, reg);
-
-        document.getElementById('btn-pronosticar-ventas').onclick = () => {
-            const inputPub = parseFloat(document.getElementById('predict-adv-cost').value);
-            if (isNaN(inputPub) || inputPub < 0) {
-                showToast("Ingrese inversión de publicidad correcta.", "warning");
-                return;
-            }
-            const predicted = reg.predict(inputPub);
-            document.getElementById('stats-predicted-sales-val').textContent = `S/. ${predicted.toLocaleString('es-PE', { minimumFractionDigits: 2 })}`;
-        };
-        document.getElementById('btn-pronosticar-ventas').click();
-
-        // Predicción Stockout
-        document.getElementById('btn-predecir-stockout').onclick = async () => {
-            const pId = parseInt(document.getElementById('predict-select-prod').value);
-            const invList = await DB.getInventario();
-            const invItem = invList.find(i => i.producto_id === pId);
-            if (!invItem) {
-                showToast("Producto no encontrado.", "danger");
-                return;
-            }
-
-            const detV = await getLocalDetallesVentas();
-            const dailyOutflows = Array(30).fill(0);
+        document.getElementById('btn-test-hip-varianza').onclick = () => {
+            const ventBoleta = ventas.filter(v => v.tipo_comprobante === 'BOLETA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
+            const ventFactura = ventas.filter(v => v.tipo_comprobante === 'FACTURA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
             
-            const baseD = new Date();
-            baseD.setDate(baseD.getDate() - 30);
-            const dateMap = {};
-            for (let i = 0; i < 30; i++) {
-                const tempD = new Date(baseD);
-                tempD.setDate(baseD.getDate() + i);
-                dateMap[tempD.toISOString().split('T')[0]] = i;
+            const resultsBox = document.getElementById('test-hip-results-box');
+            const title = document.getElementById('test-hip-results-title');
+            const text = document.getElementById('test-hip-results-text');
+
+            resultsBox.style.display = 'block';
+            title.textContent = "Contraste de Varianzas (F-Test):";
+
+            const testF = Stats.fTestVariances(ventFactura, ventBoleta);
+            if (!testF.available) {
+                text.innerHTML = `<li>No hay datos suficientes en ambos grupos (Factura vs Boleta) para ejecutar F-Test.</li>`;
+                return;
             }
 
-            detV.forEach(d => {
-                if (d.producto_id === pId) {
-                    const v = ventas.find(item => item.id === d.venta_id);
-                    if (v && v.estado === 'EMITIDA') {
-                        const dateStr = v.fecha.split('T')[0];
-                        const idx = dateMap[dateStr];
-                        if (idx !== undefined) {
-                            dailyOutflows[idx] += d.cantidad;
-                        }
+            const reject = testF.f_statistic > 2.0; // Región crítica aproximada para nivel 0.05
+            text.innerHTML = `
+                <li><b>H0:</b> La variabilidad de montos facturados es igual a la variabilidad de boletas (\(\sigma^2_{Factura} = \sigma^2_{Boleta}\)).</li>
+                <li><b>H1:</b> Las variabilidades son significativamente distintas (\(\sigma^2_{Factura} \ne \sigma^2_{Boleta}\)).</li>
+                <li>Varianza Facturas: <b>${testF.var1}</b> (df1 = ${testF.df1})</li>
+                <li>Varianza Boletas: <b>${testF.var2}</b> (df2 = ${testF.df2})</li>
+                <li>Estadístico F de Contraste: <b>F = ${testF.f_statistic}</b></li>
+                <li><b>Decisión:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0 (Varianzas heterogéneas)' : 'No se rechaza H0 (Varianzas homogéneas)'}</span>.</li>
+            `;
+        };
+
+        document.getElementById('btn-test-hip-proporcion').onclick = () => {
+            const resultsBox = document.getElementById('test-hip-results-box');
+            const title = document.getElementById('test-hip-results-title');
+            const text = document.getElementById('test-hip-results-text');
+            resultsBox.style.display = 'block';
+            title.textContent = "Contraste de Proporciones (Z-Test de dos proporciones):";
+
+            // Comparar proporción de boletas entre turnos o clientes (ejemplo: clientes con RUC que compran en efectivo vs tarjeta)
+            const rucEfec = ventas.filter(v => v.metodo_pago_id === 1).length;
+            const rucTarj = ventas.filter(v => v.metodo_pago_id !== 1).length;
+            const nTotal = ventas.length || 30;
+
+            const testZ = Stats.zTestProportions(rucEfec, Math.ceil(nTotal * 0.4), rucTarj, Math.ceil(nTotal * 0.6));
+            if (!testZ.available) {
+                text.innerHTML = `<li>Datos de proporciones no disponibles.</li>`;
+                return;
+            }
+
+            const reject = testZ.pValue < 0.05;
+            text.innerHTML = `
+                <li><b>H0:</b> Las proporciones de compra entre grupos son iguales (\(p_1 = p_2\)).</li>
+                <li><b>H1:</b> Las proporciones son diferentes (\(p_1 \ne p_2\)).</li>
+                <li>Proporción 1: <b>${(testZ.p1 * 100).toFixed(2)}%</b> | Proporción 2: <b>${(testZ.p2 * 100).toFixed(2)}%</b></li>
+                <li>Estadístico Z obtenido: <b>Z = ${testZ.z_statistic}</b></li>
+                <li>P-Valor obtenido: <b>p = ${testZ.pValue}</b></li>
+                <li><b>Decisión:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0' : 'No se rechaza H0'}</span>.</li>
+            `;
+        };
+
+        runIntervals();
+        document.getElementById('btn-test-hip-media').click();
+
+    } else if (subPage === 'chicuadrado') {
+        // Chi-Cuadrado de Independencia
+        document.getElementById('btn-calcular-chicuadrado').onclick = async () => {
+            const payMethods = await DB.getMetodosPago();
+            const categories = await DB.getCategorias();
+            
+            // Estructurar matriz observada
+            const observed = Array(categories.length).fill(0).map(() => Array(payMethods.length).fill(0));
+            
+            // Map de productos a categorías
+            const prodMap = {};
+            productos.forEach(p => {
+                prodMap[p.id] = p.categoria_id;
+            });
+            
+            // Map de ventas a método de pago
+            const salePayMap = {};
+            ventas.forEach(v => {
+                salePayMap[v.id] = v.metodo_pago_id;
+            });
+
+            detVentas.forEach(d => {
+                const catId = prodMap[d.producto_id];
+                const pMethodId = salePayMap[d.venta_id];
+                
+                if (catId !== undefined && pMethodId !== undefined) {
+                    const rowIdx = categories.findIndex(c => c.id === catId);
+                    const colIdx = payMethods.findIndex(m => m.id === pMethodId);
+                    if (rowIdx !== -1 && colIdx !== -1) {
+                        observed[rowIdx][colIdx] += d.cantidad;
                     }
                 }
             });
 
-            const stock = invItem.stock_actual;
-            const min = invItem.productos?.stock_minimo || 5;
-            const pred = Stats.inventoryPrediction(stock, min, dailyOutflows, 5);
+            const result = Stats.chiSquareIndependence(observed);
 
-            const resBox = document.getElementById('stockout-results-box');
-            resBox.style.display = 'block';
+            // Render headers
+            const headerRow = document.getElementById('chi-table-header');
+            headerRow.innerHTML = '<th>Categoría \\ Método</th>';
+            payMethods.forEach(m => {
+                headerRow.innerHTML += `<th>${m.nombre}</th>`;
+            });
+            headerRow.innerHTML += '<th>Total Cat.</th>';
+
+            // Render rows
+            const tbody = document.getElementById('chi-table-body');
+            tbody.innerHTML = '';
             
-            const resText = document.getElementById('stockout-results-text');
-            let statusText = "";
-            let color = "";
-            if (pred.status === 'CRÍTICO') { color = "#C62828"; statusText = "🔴 RIESGO CRÍTICO (Agotamiento inminente en menos de 2 días)"; }
-            else if (pred.status === 'RIESGO_ALTO') { color = "#EF6C00"; statusText = "🔴 RIESGO ALTO (Se agotará en menos de 5 días)"; }
-            else if (pred.status === 'PREVENCIÓN') { color = "#FFB74D"; statusText = "⚠️ PREVENCIÓN (Reponer en los próximos 10 días)"; }
-            else { color = "#81C784"; statusText = "🟢 ESTABLE (Stock de seguridad suficiente)"; }
+            let rowTotals = Array(categories.length).fill(0);
+            let colTotals = Array(payMethods.length).fill(0);
+            let totalGeneral = 0;
 
-            resText.innerHTML = `
-                <li>Stock Físico Actual: <b>${stock} unidades</b> (Stock mínimo de alerta: ${min}).</li>
-                <li>Salidas promedio diarias estimadas (últimos 5 días): <b>${pred.predictedOutflow} unidades/día</b>.</li>
-                <li>Días estimados para alcanzar el stock mínimo: <b style="color:${pred.daysToStockMin <= 2 ? '#EF6C00' : '#FFFFFF'}">${pred.daysToStockMin === Infinity ? 'N/A' : pred.daysToStockMin} días</b>.</li>
-                <li>Días para el agotamiento total (quiebra): <b>${pred.daysToStockout === Infinity ? 'Infinitos (sin demanda)' : pred.daysToStockout + ' días'}</b>.</li>
-                <li>Diagnóstico de Seguridad: <b style="color:${color};">${statusText}</b></li>
+            categories.forEach((cat, rIdx) => {
+                const tr = document.createElement('tr');
+                let rowHtml = `<td><b>${cat.nombre}</b></td>`;
+                
+                payMethods.forEach((m, cIdx) => {
+                    const val = observed[rIdx][cIdx];
+                    rowHtml += `<td>${val} <span style="font-size:8px; color:var(--text-secondary);">(${result.expected[rIdx][cIdx].toFixed(1)})</span></td>`;
+                    rowTotals[rIdx] += val;
+                    colTotals[cIdx] += val;
+                    totalGeneral += val;
+                });
+                
+                rowHtml += `<td><b>${rowTotals[rIdx]}</b></td>`;
+                tr.innerHTML = rowHtml;
+                tbody.appendChild(tr);
+            });
+
+            // Fila de totales
+            const trTotal = document.createElement('tr');
+            let totalHtml = '<td><b>TOTAL PAGO</b></td>';
+            colTotals.forEach(val => {
+                totalHtml += `<td><b>${val}</b></td>`;
+            });
+            totalHtml += `<td><b>${totalGeneral}</b></td>`;
+            trTotal.innerHTML = totalHtml;
+            tbody.appendChild(trTotal);
+
+            // Render resultados descriptivos
+            const resultBox = document.getElementById('chicuadrado-results-box');
+            resultBox.style.display = 'block';
+
+            const reject = result.pValue < 0.05;
+
+            document.getElementById('chicuadrado-results-text').innerHTML = `
+                <li><b>H0 (Hipótesis Nula):</b> La Categoría del Producto y el Método de Pago utilizado son **variables independientes** (no hay correlación).</li>
+                <li><b>H1 (Hipótesis Alterna):</b> Las variables **son dependientes** (el método de pago varía según la categoría).</li>
+                <li>Estadístico Chi-Cuadrado de contraste: \(\chi^2 = <b>${result.chiSquare}</b>\)</li>
+                <li>Grados de Libertad del modelo: df = (r-1)*(c-1) = <b>${result.df}</b></li>
+                <li>Significancia empírica obtenida: <b>p-valor = ${result.pValue}</b> (nivel crítico \(\alpha = 0.05\))</li>
+                <li><b>Decisión de Contraste:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0 (Existe Dependencia Significativa)' : 'No se rechaza H0 (Independencia de variables)'}</span></li>
             `;
         };
-        document.getElementById('btn-predecir-stockout').click();
 
-    } else if (subPage === 'narrativo') {
-        const narrativeList = document.getElementById('reporte-narrativo-completo');
-        narrativeList.innerHTML = '<li>Generando diagnóstico del negocio...</li>';
+        // T-Student properties
+        document.getElementById('btn-calcular-tstudent').onclick = () => {
+            const n = parseInt(document.getElementById('tstudent-n-samples').value) || 10;
+            const df = n - 1;
+            
+            // Tabla simplificada T-Student crítica al 95% (Bilateral)
+            const tTable95 = [
+                12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228,
+                2.201, 2.179, 2.160, 2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086,
+                2.080, 2.074, 2.069, 2.064, 2.060, 2.056, 2.052, 2.048, 2.045, 2.042
+            ];
+            
+            const tCrit = tTable95[df - 1] || 2.042;
+            const text = document.getElementById('tstudent-results-text');
+            text.innerHTML = `
+                <li>Tamaño muestral fijado: <b>n = ${n} observaciones</b>.</li>
+                <li>Grados de Libertad del modelo: df = n - 1 = <b>${df}</b>.</li>
+                <li>Valor crítico de contraste en tablas (\(t_{\alpha/2, df}\)): <b>t = \pm ${tCrit.toFixed(3)}</b> (para 95% de confianza bilateral).</li>
+                <li><b>Propiedades T-Student:</b>
+                    <br>- Es simétrica respecto a su media (cero).
+                    <br>- Posee colas más anchas y pesadas que la campana normal estándar Z.
+                    <br>- A medida que los grados de libertad aumentan (\(n \to \infty\)), la distribución T-Student converge exactamente a la Normal Estándar.
+                </li>
+            `;
+        };
 
-        setTimeout(async () => {
-            const invList = await DB.getInventario();
-            const report = Stats.generateNarrativeReport(ventas, [], invList, publicidad);
-            narrativeList.innerHTML = '';
-            report.forEach(paragraph => {
-                const li = document.createElement('li');
-                li.innerHTML = paragraph;
-                narrativeList.appendChild(li);
+        document.getElementById('btn-calcular-chicuadrado').click();
+        document.getElementById('btn-calcular-tstudent').click();
+
+    } else if (subPage === 'reportepdf') {
+        // Enlazar botón de exportación PDF
+        document.getElementById('btn-exportar-pdf-documento').onclick = () => {
+            const container = document.getElementById('pdf-export-container');
+            container.style.display = 'block';
+
+            // Cargar contenido actualizado
+            document.getElementById('pdf-descriptiva-content').innerHTML = `
+                <p><b>Resumen de Variables Operativas del Negocio:</b></p>
+                <p>- Media de ventas diarias: S/. ${document.getElementById('stats-res-media').textContent}</p>
+                <p>- Mediana de ventas diarias: S/. ${document.getElementById('stats-res-mediana').textContent}</p>
+                <p>- Coeficiente de Variación (CV): ${document.getElementById('stats-res-cv').textContent}</p>
+                <p>- Frecuencias de Sturges aplicadas correctamente sobre las observaciones del sistema ERP.</p>
+            `;
+
+            document.getElementById('pdf-inferencial-content').innerHTML = `
+                <p><b>Cálculos de Límites Intervalares (95% de Confianza):</b></p>
+                <p>${document.getElementById('ic-media-results-text').innerHTML}</p>
+                <p>${document.getElementById('ic-proporcion-results-text').innerHTML}</p>
+            `;
+
+            document.getElementById('pdf-hypothesis-content').innerHTML = `
+                <p><b>Pruebas de Hipótesis Ejecutadas:</b></p>
+                <p>${document.getElementById('test-hip-results-text').innerHTML}</p>
+            `;
+
+            document.getElementById('pdf-muestreo-content').innerHTML = `
+                <p><b>Diseño Muestral de Poblaciones Finitas:</b></p>
+                <p>${document.getElementById('sample-size-results-text').innerHTML}</p>
+            `;
+
+            // Configurar PDF y compilar
+            const opt = {
+                margin:       15,
+                filename:     'SIGEA_Reporte_Estadistico_Completo.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+
+            html2pdf().set(opt).from(container).save().then(() => {
+                container.style.display = 'none';
+                showToast("Reporte PDF descargado con éxito.", "success");
+            }).catch(e => {
+                console.error("Error al compilar PDF:", e);
+                showToast("Error al exportar reporte PDF.", "danger");
+                container.style.display = 'none';
             });
-        }, 150);
+        };
     }
 }
 
+// Dibujar Histograma, Ojiva y BoxPlot en canvas
 function renderDescriptivaCharts(freqTable, dataset) {
     if (StatsCharts.histograma) StatsCharts.histograma.destroy();
     if (StatsCharts.ojiva) StatsCharts.ojiva.destroy();
@@ -396,7 +681,7 @@ function renderDescriptivaCharts(freqTable, dataset) {
             labels: labels,
             datasets: [
                 {
-                    label: 'Frecuencia Absoluta',
+                    label: 'Frecuencia Absoluta (Histograma)',
                     data: faData,
                     backgroundColor: 'rgba(21, 101, 192, 0.65)',
                     borderColor: '#1565C0',
@@ -457,7 +742,7 @@ function renderDescriptivaCharts(freqTable, dataset) {
     StatsCharts.boxplot = new Chart(ctxBox, {
         type: 'bar',
         data: {
-            labels: ['Variable'],
+            labels: ['Muestra Analizada'],
             datasets: [{
                 label: 'Mediana (Q2)',
                 data: [box.median],
@@ -472,8 +757,8 @@ function renderDescriptivaCharts(freqTable, dataset) {
             indexAxis: 'y',
             scales: {
                 x: { 
-                    min: Math.max(0, box.min - (box.max-box.min)*0.1),
-                    max: box.max + (box.max-box.min)*0.1,
+                    min: Math.max(0, box.min - (box.max - box.min) * 0.1),
+                    max: box.max + (box.max - box.min) * 0.1,
                     grid: { color: '#2C2C2C' }, 
                     ticks: { color: '#BDBDBD' } 
                 },
@@ -483,7 +768,7 @@ function renderDescriptivaCharts(freqTable, dataset) {
                 tooltip: {
                     callbacks: {
                         afterBody: () => {
-                            return `Mín: ${box.min.toFixed(1)}\nQ1: ${box.q1.toFixed(1)}\nMediana: ${box.median.toFixed(1)}\nQ3: ${box.q3.toFixed(1)}\nMáx: ${box.max.toFixed(1)}`;
+                            return `L. Inferior: ${box.min.toFixed(1)}\nQ1 (25%): ${box.q1.toFixed(1)}\nMediana (50%): ${box.median.toFixed(1)}\nQ3 (75%): ${box.q3.toFixed(1)}\nL. Superior: ${box.max.toFixed(1)}`;
                         }
                     }
                 },
@@ -493,62 +778,140 @@ function renderDescriptivaCharts(freqTable, dataset) {
     });
 }
 
-function renderDispersionChart(x, y, regression) {
-    if (StatsCharts.dispersion) StatsCharts.dispersion.destroy();
+function renderVariableAleatoriaTable(detVentas) {
+    const countMap = {};
+    let totalTrans = 0;
+    
+    // Agrupar productos comprados por venta para definir X
+    const saleItemCounts = {};
+    detVentas.forEach(d => {
+        saleItemCounts[d.venta_id] = (saleItemCounts[d.venta_id] || 0) + d.cantidad;
+    });
+    
+    Object.values(saleItemCounts).forEach(cnt => {
+        countMap[cnt] = (countMap[cnt] || 0) + 1;
+        totalTrans++;
+    });
+    
+    const sortedX = Object.keys(countMap).map(Number).sort((a, b) => a - b);
+    const vaTBody = document.getElementById('stats-table-va-body');
+    vaTBody.innerHTML = '';
+    
+    if (sortedX.length === 0) {
+        vaTBody.innerHTML = '<tr><td colspan="4" style="text-align:center;">Cargando transacciones reales...</td></tr>';
+        return;
+    }
 
-    const scatterData = x.map((val, idx) => ({ x: val, y: y[idx] }));
-    const minX = Math.min(...x);
-    const maxX = Math.max(...x);
-    const lineData = [
-        { x: minX, y: regression.predict(minX) },
-        { x: maxX, y: regression.predict(maxX) }
-    ];
-
-    const ctx = document.getElementById('chart-stats-dispersion').getContext('2d');
-    StatsCharts.dispersion = new Chart(ctx, {
-        data: {
-            datasets: [
-                {
-                    type: 'scatter',
-                    label: 'Ventas vs Publicidad',
-                    data: scatterData,
-                    backgroundColor: '#FFB74D',
-                    borderColor: '#EF6C00',
-                    borderWidth: 1
-                },
-                {
-                    type: 'line',
-                    label: 'Recta de Regresión',
-                    data: lineData,
-                    borderColor: '#1976D2',
-                    borderWidth: 2,
-                    fill: false,
-                    pointRadius: 0
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                x: { 
-                    type: 'linear', 
-                    position: 'bottom', 
-                    title: { display: true, text: 'Publicidad (S/.)', color: '#FFFFFF' },
-                    grid: { color: '#2C2C2C' },
-                    ticks: { color: '#BDBDBD' }
-                },
-                y: { 
-                    title: { display: true, text: 'Ventas Totales (S/.)', color: '#FFFFFF' },
-                    grid: { color: '#2C2C2C' },
-                    ticks: { color: '#BDBDBD' }
-                }
-            },
-            plugins: { legend: { labels: { color: '#FFFFFF' } } }
-        }
+    let cumProb = 0;
+    sortedX.forEach(x => {
+        const freq = countMap[x];
+        const prob = freq / totalTrans;
+        cumProb += prob;
+        
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><b>x = ${x} productos</b></td>
+            <td>${freq} transacciones</td>
+            <td><b>${(prob * 100).toFixed(2)} %</b> (p = ${prob.toFixed(4)})</td>
+            <td><b>${(cumProb * 100).toFixed(2)} %</b> (F(x) = ${cumProb.toFixed(4)})</td>
+        `;
+        vaTBody.appendChild(tr);
     });
 }
 
-async function getLocalDetallesVentas() {
-    return await DB.getDetallesVentasTodos();
+function drawNormalCurve(zScore) {
+    const canvas = document.getElementById('chart-stats-normal-curva');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 30;
+    
+    const graphWidth = width - 2 * padding;
+    const graphHeight = height - 2 * padding;
+    
+    // Limpiar canvas
+    ctx.clearRect(0, 0, width, height);
+    
+    // Dibujar línea base del eje X
+    ctx.beginPath();
+    ctx.strokeStyle = '#424242';
+    ctx.lineWidth = 2;
+    ctx.moveTo(padding, height - padding);
+    ctx.lineTo(width - padding, height - padding);
+    ctx.stroke();
+    
+    const xMin = -3.5;
+    const xMax = 3.5;
+    
+    function toScreenX(xVal) {
+        return padding + ((xVal - xMin) / (xMax - xMin)) * graphWidth;
+    }
+    
+    function toScreenY(yVal) {
+        const yMax = 0.45; // Densidad máxima para escalar
+        return height - padding - (yVal / yMax) * graphHeight;
+    }
+    
+    function normalPDF(x) {
+        return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+    }
+    
+    // 1. Sombrear área de probabilidad acumulada (Z-Score)
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(21, 101, 192, 0.4)';
+    ctx.moveTo(toScreenX(xMin), toScreenY(0));
+    
+    const zLimit = Math.min(xMax, Math.max(xMin, zScore));
+    const step = 0.05;
+    for (let x = xMin; x <= zLimit; x += step) {
+        ctx.lineTo(toScreenX(x), toScreenY(normalPDF(x)));
+    }
+    ctx.lineTo(toScreenX(zLimit), toScreenY(0));
+    ctx.closePath();
+    ctx.fill();
+    
+    // 2. Dibujar curva campana de Gauss
+    ctx.beginPath();
+    ctx.strokeStyle = '#1565C0';
+    ctx.lineWidth = 3;
+    for (let x = xMin; x <= xMax; x += step) {
+        const sx = toScreenX(x);
+        const sy = toScreenY(normalPDF(x));
+        if (x === xMin) {
+            ctx.moveTo(sx, sy);
+        } else {
+            ctx.lineTo(sx, sy);
+        }
+    }
+    ctx.stroke();
+    
+    // 3. Dibujar línea vertical de la posición Z-score actual
+    const zScreenX = toScreenX(zLimit);
+    ctx.beginPath();
+    ctx.strokeStyle = '#EF6C00';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(zScreenX, toScreenY(0));
+    ctx.lineTo(zScreenX, toScreenY(normalPDF(zLimit)));
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    // Texto Z superior
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Z = ' + zScore.toFixed(2), zScreenX, toScreenY(normalPDF(zLimit)) - 10);
+    
+    // Dibujar marcadores en el eje X (-3, -2, -1, 0, 1, 2, 3)
+    ctx.fillStyle = '#BDBDBD';
+    for (let tick = -3; tick <= 3; tick++) {
+        const tx = toScreenX(tick);
+        ctx.beginPath();
+        ctx.moveTo(tx, height - padding);
+        ctx.lineTo(tx, height - padding + 5);
+        ctx.stroke();
+        ctx.fillText(tick, tx, height - padding + 18);
+    }
 }

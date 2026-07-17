@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIGEA - Estadísticas</title>
+    <title>SIGEA - Estadísticas Científicas</title>
     <!-- FontAwesome para íconos -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <!-- Hojas de estilos -->
-    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles.css?v=1.0.2">
     <!-- Chart.js para los gráficos interactivos -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- html2pdf.js para exportar reportes a PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Supabase JS Client library -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -21,22 +23,40 @@
             <!-- Header se inyecta dinámicamente aquí -->
             <div class="view-container">
                 
+                <!-- Advertencia de falta de datos -->
+                <div class="alert-item info" id="stats-no-data-warning" style="display:none; margin-bottom:20px; border-left: 5px solid var(--danger); background-color: rgba(198, 40, 40, 0.08);">
+                    <div class="alert-message">
+                        <i class="fa-solid fa-circle-exclamation" style="color:var(--danger);"></i>
+                        <span style="font-weight:600;">Advertencia de Muestreo:</span>
+                        <span>La base de datos en Supabase no contiene datos suficientes para cálculos inferenciales. Registre al menos 5 ventas y 3 compras, o active el "Modo Demo" en el módulo de Configuración para cargar datos simulados.</span>
+                    </div>
+                </div>
+
                 <div class="stats-layout">
                     <!-- Sidebar de navegación estadística -->
                     <aside class="stats-sidebar">
-                        <div class="stats-sidebar-title">Menú Estadístico</div>
+                        <div class="stats-sidebar-title">Modelos Estadísticos</div>
                         <ul class="stats-nav">
                             <li class="stats-nav-item active" data-sub="descriptiva" id="nav-item-descriptiva">
-                                <button><i class="fa-solid fa-calculator"></i> Est. Descriptiva</button>
+                                <button><i class="fa-solid fa-chart-pie"></i> Descriptiva & V.A.</button>
                             </li>
-                            <li class="stats-nav-item" data-sub="probabilidad" id="nav-item-probabilidad">
-                                <button><i class="fa-solid fa-dice"></i> Probabilidades</button>
+                            <li class="stats-nav-item" data-sub="binomial" id="nav-item-binomial">
+                                <button><i class="fa-solid fa-dice"></i> Binomial & Poisson</button>
                             </li>
-                            <li class="stats-nav-item" data-sub="regresion" id="nav-item-regresion">
-                                <button><i class="fa-solid fa-chart-line"></i> Regresión & Pronóstico</button>
+                            <li class="stats-nav-item" data-sub="normal" id="nav-item-normal">
+                                <button><i class="fa-solid fa-chart-area"></i> Dist. Normal Tipificada</button>
                             </li>
-                            <li class="stats-nav-item" data-sub="narrativo" id="nav-item-narrativo">
-                                <button><i class="fa-solid fa-book-open"></i> Interpretaciones</button>
+                            <li class="stats-nav-item" data-sub="muestrales" id="nav-item-muestrales">
+                                <button><i class="fa-solid fa-arrows-to-eye"></i> Muestreo & Población</button>
+                            </li>
+                            <li class="stats-nav-item" data-sub="inferencia" id="nav-item-inferencia">
+                                <button><i class="fa-solid fa-scale-balanced"></i> Hipótesis & Intervalos</button>
+                            </li>
+                            <li class="stats-nav-item" data-sub="chicuadrado" id="nav-item-chicuadrado">
+                                <button><i class="fa-solid fa-square-root-variable"></i> Chi-Cuadrado & T-Student</button>
+                            </li>
+                            <li class="stats-nav-item" data-sub="reportepdf" id="nav-item-reportepdf">
+                                <button><i class="fa-solid fa-file-pdf"></i> Reporte PDF Académico</button>
                             </li>
                         </ul>
                     </aside>
@@ -44,25 +64,22 @@
                     <!-- Contenido Estadístico Dinámico -->
                     <div class="stats-content">
                         
-                        <!-- SUB-VIEW 1: ESTADÍSTICA DESCRIPTIVA -->
+                        <!-- SUB-VIEW 1: ESTADÍSTICA DESCRIPTIVA & VARIABLE ALEATORIA -->
                         <div class="sub-stats-page active" id="sub-stats-descriptiva">
-                            <h3 class="stats-section-title">Análisis de Frecuencias y Medidas de Dispersión</h3>
+                            <h3 class="stats-section-title">Análisis de Frecuencias y Distribución de Variables Aleatorias</h3>
                             
                             <div style="display:flex; align-items:center; gap:16px; margin-bottom:24px;">
-                                <label for="stats-select-variable">Variable Analizar:</label>
-                                <select id="stats-select-variable" class="form-control" style="width:250px;">
+                                <label for="stats-select-variable">Variable a Analizar:</label>
+                                <select id="stats-select-variable" class="form-control" style="width:280px;">
                                     <option value="ventas_totales">Importe Ventas Diarias (30 días)</option>
                                     <option value="ventas_cantidades">Cantidades por Transacción</option>
-                                    <option value="publicidad">Costo de Publicidad Diaria</option>
                                 </select>
                                 <button class="btn btn-primary" id="btn-calcular-descriptiva">Calcular</button>
                             </div>
 
-                            <!-- Medidas Resumen -->
-                            <h4 style="margin-bottom:12px; font-family: var(--font-header);">Medidas de Tendencia Central y Dispersión</h4>
                             <div class="stats-grid-parameters">
                                 <div class="parameter-card">
-                                    <span class="parameter-title">Media (Promedio)</span>
+                                    <span class="parameter-title">Media (\(\mu\))</span>
                                     <div class="parameter-value" id="stats-res-media">0.00</div>
                                 </div>
                                 <div class="parameter-card">
@@ -74,15 +91,15 @@
                                     <div class="parameter-value" id="stats-res-moda">0.00</div>
                                 </div>
                                 <div class="parameter-card">
-                                    <span class="parameter-title">Desviación Estándar</span>
+                                    <span class="parameter-title">Desviación Estándar (\(\sigma\))</span>
                                     <div class="parameter-value" id="stats-res-desviacion">0.00</div>
                                 </div>
                                 <div class="parameter-card">
-                                    <span class="parameter-title">Varianza</span>
+                                    <span class="parameter-title">Varianza (\(\sigma^2\))</span>
                                     <div class="parameter-value" id="stats-res-varianza">0.00</div>
                                 </div>
                                 <div class="parameter-card">
-                                    <span class="parameter-title">Coef. Variación</span>
+                                    <span class="parameter-title">Coef. Variación (CV)</span>
                                     <div class="parameter-value" id="stats-res-cv">0.00 %</div>
                                 </div>
                                 <div class="parameter-card">
@@ -95,9 +112,9 @@
                                 </div>
                             </div>
 
-                            <!-- Frecuencias Tabular -->
-                            <h4 style="margin-bottom:12px; font-family: var(--font-header);">Tabla de Distribución de Frecuencias Agrupadas</h4>
-                            <div class="data-table-container" style="box-shadow: none; margin-bottom:32px;">
+                            <!-- Sturges Frequencies -->
+                            <h4 style="margin-bottom:12px; font-family: var(--font-header);">Tabla de Distribución de Frecuencias Agrupadas (Regla de Sturges)</h4>
+                            <div class="data-table-container" style="box-shadow: none; margin-bottom:24px;">
                                 <table class="data-table" style="font-size:12px;">
                                     <thead>
                                         <tr>
@@ -109,226 +126,367 @@
                                             <th>Frec. Rel. Acum (Hi)</th>
                                         </tr>
                                     </thead>
-                                    <tbody id="stats-table-frequencies-body">
-                                        <!-- Dinámico -->
-                                    </tbody>
+                                    <tbody id="stats-table-frequencies-body"></tbody>
                                 </table>
                             </div>
 
-                            <!-- Gráficos Estadísticos -->
-                            <h4 style="margin-bottom:16px; font-family: var(--font-header);">Gráficos de la Distribución</h4>
+                            <!-- Variable Aleatoria Discreta -->
+                            <h4 style="margin-bottom:12px; font-family: var(--font-header);">Variable Aleatoria Discreta \(X\) y Función de Probabilidad</h4>
+                            <p style="font-size:12px; color:var(--text-secondary); margin-bottom:16px;">
+                                Definimos la Variable Aleatoria Discreta \(X\) como: **"Número de productos vendidos por transacción"**. A continuación se muestra la distribución de probabilidades \(P(X = x)\) calculada sobre todas las boletas emitidas:
+                            </p>
+                            <div class="data-table-container" style="box-shadow: none; margin-bottom:32px;">
+                                <table class="data-table" style="font-size:12px;">
+                                    <thead>
+                                        <tr>
+                                            <th>Valor de la Variable (x)</th>
+                                            <th>Frecuencia Observada (f)</th>
+                                            <th>Función de Probabilidad \(P(X = x)\)</th>
+                                            <th>Distribución Acumulada \(F(x) = P(X \le x)\)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="stats-table-va-body"></tbody>
+                                </table>
+                            </div>
+
+                            <!-- Gráficos Descriptivos -->
                             <div class="charts-grid" style="grid-template-columns: repeat(2, 1fr);">
                                 <div class="chart-card">
                                     <div class="chart-header"><h3>Histograma y Polígono de Frecuencias</h3></div>
                                     <div class="chart-body"><canvas id="chart-stats-histograma"></canvas></div>
+                                    <p class="chart-description" style="font-size:11px; color:var(--text-secondary); padding:8px; margin-top:8px;">
+                                        <b>Interpretación:</b> Las barras del histograma representan la cantidad de observaciones en cada intervalo Sturges. La línea roja (polígono) une los puntos medios de cada intervalo para visualizar la asimetría y el comportamiento de la distribución empírica.
+                                    </p>
                                 </div>
                                 <div class="chart-card">
-                                    <div class="chart-header"><h3>Ojiva Acumulativa (Fi)</h3></div>
+                                    <div class="chart-header"><h3>Ojiva de Frecuencia Acumulada (Fi)</h3></div>
                                     <div class="chart-body"><canvas id="chart-stats-ojiva"></canvas></div>
+                                    <p class="chart-description" style="font-size:11px; color:var(--text-secondary); padding:8px; margin-top:8px;">
+                                        <b>Interpretación:</b> La curva ojiva es un gráfico acumulativo. Muestra qué porcentaje o número acumulado de observaciones caen por debajo de los límites superiores de cada intervalo. Permite estimar percentiles empíricos rápidamente.
+                                    </p>
                                 </div>
                                 <div class="chart-card" style="grid-column: span 2; max-width: 600px; margin: 0 auto; width:100%;">
                                     <div class="chart-header"><h3>Diagrama de Caja y Bigotes (BoxPlot)</h3></div>
                                     <div class="chart-body" style="height:200px;"><canvas id="chart-stats-boxplot"></canvas></div>
+                                    <p class="chart-description" style="font-size:11px; color:var(--text-secondary); padding:8px; margin-top:8px;">
+                                        <b>Interpretación:</b> La caja central representa el rango intercuartílico (Q1 a Q3). La línea interna muestra la mediana (Q2). Los bigotes se extienden hasta los valores máximos y mínimos no atípicos. Es ideal para detectar la dispersión y la presencia de outliers.
+                                    </p>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- SUB-VIEW 2: PROBABILIDADES E INFERENCIA -->
-                        <div class="sub-stats-page" id="sub-stats-probabilidad" style="display:none;">
-                            <h3 class="stats-section-title">Modelamiento Probabilístico y Pruebas Inferenciales</h3>
+                        <!-- SUB-VIEW 2: DISTRIBUCIÓN BINOMIAL Y POISSON -->
+                        <div class="sub-stats-page" id="sub-stats-binomial" style="display:none;">
+                            <h3 class="stats-section-title">Modelado de Eventos Discretos: Binomial y Poisson</h3>
                             
                             <div class="charts-grid" style="grid-template-columns: 1fr;">
                                 
-                                <!-- 1. Distribución Binomial -->
+                                <!-- Sección Binomial -->
                                 <div class="chart-card">
                                     <div class="chart-header">
-                                        <h3>Distribución Binomial: Ventas de Categorías Específicas</h3>
+                                        <h3>Distribución Binomial: Probabilidad de Compras Exitosas</h3>
                                     </div>
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:12px;">
+                                        Se define por la fórmula: \(P(X = k) = \binom{n}{k} p^k (1-p)^{n-k}\), donde \(\binom{n}{k} = \frac{n!}{k!(n-k)!}\). <br>
+                                        *Características: Población independiente, ensayos fijos con dos posibles resultados (Éxito / Fracaso) y probabilidad constante.*
+                                    </p>
                                     <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; margin-bottom:16px;">
                                         <div class="form-group">
                                             <label>Ensayos (N ventas)</label>
                                             <input type="number" id="bin-n" class="form-control" value="10" min="1">
                                         </div>
                                         <div class="form-group">
-                                            <label>Éxitos esperados (k)</label>
-                                            <input type="number" id="bin-k" class="form-control" value="8" min="0">
+                                            <label>Éxitos deseados (k)</label>
+                                            <input type="number" id="bin-k" class="form-control" value="3" min="0">
                                         </div>
                                         <div class="form-group">
                                             <label>Categoría analizada</label>
                                             <select id="bin-select-cat" class="form-control"></select>
                                         </div>
                                         <div class="form-group">
-                                            <label style="display:flex; justify-content:space-between;">Prob. Éxito (p) <span id="bin-lbl-p" style="color:var(--primary-hover);">0.30</span></label>
-                                            <input type="text" id="bin-p-val" class="form-control" readonly value="0.30">
+                                            <label>Probabilidad de Éxito (p)</label>
+                                            <input type="text" id="bin-p-val" class="form-control" readonly value="0.25">
                                         </div>
                                     </div>
-                                    <button class="btn btn-primary" id="btn-calcular-binomial" style="margin-bottom:16px;">Calcular Probabilidad Binomial</button>
+                                    <button class="btn btn-primary" id="btn-calcular-binomial" style="margin-bottom:16px;">Calcular Binomial</button>
+                                    
                                     <div class="narrative-container" id="binomial-results-box" style="margin-top:0;">
-                                        <h4>Resultado del Cálculo:</h4>
-                                        <ul class="narrative-text" id="binomial-results-text">
-                                            <!-- Dinámico -->
-                                        </ul>
+                                        <h4>Detalle matemático del cálculo:</h4>
+                                        <ul class="narrative-text" id="binomial-results-text"></ul>
                                     </div>
                                 </div>
 
-                                <!-- 2. Distribución de Poisson -->
+                                <!-- Sección Poisson y Aproximación -->
                                 <div class="chart-card">
                                     <div class="chart-header">
-                                        <h3>Distribución de Poisson: Frecuencia de Llegada de Clientes</h3>
+                                        <h3>Distribución de Poisson: Frecuencia de Transacciones</h3>
                                     </div>
-                                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:16px;">
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:12px;">
+                                        Se define por la fórmula: \(P(X = k) = \frac{\lambda^k e^{-\lambda}}{k!}\), donde \(\lambda\) es la tasa promedio de ocurrencia en un intervalo de tiempo. <br>
+                                        *Aproximación a la Binomial: Cuando \(n\) es grande (\(n \ge 30\)) y \(p\) es pequeño (\(p \le 0.1\)), la distribución binomial se aproxima con Poisson usando \(\lambda = n \cdot p\).*
+                                    </p>
+                                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:16px;">
                                         <div class="form-group">
-                                            <label>Clientes Promedio por hora (Lambda)</label>
-                                            <input type="number" id="poisson-lambda" class="form-control" value="10.5" step="0.1" min="0.1">
+                                            <label>Tasa Promedio (\(\lambda\) por hora)</label>
+                                            <input type="number" id="poisson-lambda" class="form-control" value="8.0" step="0.1">
                                         </div>
                                         <div class="form-group">
-                                            <label>Llegadas Consultadas (k)</label>
-                                            <input type="number" id="poisson-k" class="form-control" value="15" min="0">
+                                            <label>Eventos consultados (k)</label>
+                                            <input type="number" id="poisson-k" class="form-control" value="5">
                                         </div>
                                         <div class="form-group">
                                             <label>Dirección</label>
                                             <select id="poisson-direction" class="form-control">
-                                                <option value="more_than">Más de k (> k)</option>
                                                 <option value="exact">Exactamente k (= k)</option>
                                                 <option value="at_most">A lo mucho k (<= k)</option>
                                                 <option value="at_least">Por lo menos k (>= k)</option>
                                             </select>
                                         </div>
                                     </div>
-                                    <button class="btn btn-primary" id="btn-calcular-poisson" style="margin-bottom:16px;">Calcular Probabilidad Poisson</button>
+                                    <button class="btn btn-primary" id="btn-calcular-poisson" style="margin-bottom:16px;">Calcular Poisson y Aproximación</button>
+                                    
                                     <div class="narrative-container" id="poisson-results-box" style="margin-top:0;">
-                                        <h4>Resultado del Cálculo:</h4>
-                                        <ul class="narrative-text" id="poisson-results-text">
-                                            <!-- Dinámico -->
-                                        </ul>
+                                        <h4>Resultados y Distribución de Poisson:</h4>
+                                        <ul class="narrative-text" id="poisson-results-text"></ul>
                                     </div>
                                 </div>
 
-                                <!-- 3. Distribución Normal e Intervalo de Confianza -->
-                                <div class="chart-card">
-                                    <div class="chart-header">
-                                        <h3>Distribución Normal & Intervalos de Confianza</h3>
-                                    </div>
-                                    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px; margin-bottom:16px;">
-                                        <div class="form-group">
-                                            <label>Media del Negocio (u)</label>
-                                            <input type="number" id="normal-mean" class="form-control" readonly value="3500">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Desv. Estándar (o)</label>
-                                            <input type="number" id="normal-sd" class="form-control" readonly value="500">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Ventas Consultadas (X)</label>
-                                            <input type="number" id="normal-x" class="form-control" value="3800">
-                                        </div>
-                                        <div class="form-group">
-                                            <label>Dirección de probabilidad</label>
-                                            <select id="normal-direction" class="form-control">
-                                                <option value="less_than">Vender menos de X (<= X)</option>
-                                                <option value="more_than">Vender más de X (>= X)</option>
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <button class="btn btn-primary" id="btn-calcular-normal" style="margin-bottom:16px;">Calcular Inferencia Normal e Intervalos</button>
-                                    <div class="narrative-container" id="normal-results-box" style="margin-top:0;">
-                                        <h4>Inferencia Normal & Límites de Confianza:</h4>
-                                        <ul class="narrative-text" id="normal-results-text">
-                                            <!-- Dinámico -->
-                                        </ul>
-                                    </div>
-                                </div>
-
-                                <!-- 4. Prueba de Hipótesis -->
-                                <div class="chart-card">
-                                    <div class="chart-header">
-                                        <h3>Contraste de Hipótesis: Impacto de las Promociones</h3>
-                                    </div>
-                                    <div style="padding:12px; background-color:var(--bg-main); border:1px dashed var(--border); border-radius:8px; margin-bottom:16px; font-size:12px;">
-                                        <b>Hipótesis del Sistema:</b><br>
-                                        • H0: Las promociones (descuentos) <b>NO</b> aumentan el valor medio del ticket de venta (u1 <= u2)<br>
-                                        • H1: Las promociones (descuentos) <b>SÍ</b> aumentan el valor medio del ticket de venta (u1 > u2)
-                                    </div>
-                                    <button class="btn btn-primary" id="btn-ejecutar-hipotesis" style="margin-bottom:16px;">Ejecutar Prueba t de Welch (p-valor)</button>
-                                    <div class="narrative-container" id="hipotesis-results-box" style="margin-top:0;">
-                                        <h4>Decisión y Conclusión Automática:</h4>
-                                        <ul class="narrative-text" id="hipotesis-results-text">
-                                            <!-- Dinámico -->
-                                        </ul>
-                                    </div>
-                                </div>
                             </div>
                         </div>
 
-                        <!-- SUB-VIEW 3: REGRESIÓN, CORRELACIÓN Y PRONÓSTICOS -->
-                        <div class="sub-stats-page" id="sub-stats-regresion" style="display:none;">
-                            <h3 class="stats-section-title">Análisis de Regresión Lineal y Correlación</h3>
+                        <!-- SUB-VIEW 3: DISTRIBUCIÓN NORMAL TIPIFICADA -->
+                        <div class="sub-stats-page" id="sub-stats-normal" style="display:none;">
+                            <h3 class="stats-section-title">Distribución Normal de Ventas</h3>
                             
-                            <div class="charts-grid" style="grid-template-columns: 1.5fr 1fr;">
+                            <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
                                 <div class="chart-card">
                                     <div class="chart-header">
-                                        <h3>Gráfico de Dispersión y Ecuación de Regresión</h3>
+                                        <h3>Campana de Gauss y Área de Probabilidad</h3>
                                     </div>
-                                    <div class="chart-body">
-                                        <canvas id="chart-stats-dispersion"></canvas>
+                                    <div class="chart-body" style="height: 250px;">
+                                        <canvas id="chart-stats-normal-curva"></canvas>
                                     </div>
+                                    <p class="chart-description" style="font-size:11px; color:var(--text-secondary); padding:8px; margin-top:8px;">
+                                        <b>Curva Normal Tipificada:</b> Representa la distribución estándar \(Z \sim N(0, 1)\). El área sombreada en azul representa la probabilidad acumulada calculada para el límite \(Z\) ingresado en el buscador.
+                                    </p>
                                 </div>
-                                
-                                <div class="chart-card" style="height: fit-content;">
+
+                                <div class="chart-card">
                                     <div class="chart-header">
-                                        <h3>Pronóstico Interactivo de Ventas</h3>
+                                        <h3>Calculadora de Probabilidad de la Curva Normal</h3>
+                                    </div>
+                                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px; margin-bottom:16px;">
+                                        <div class="form-group">
+                                            <label>Media del Negocio (\(\mu\))</label>
+                                            <input type="number" id="normal-mean-val" class="form-control" readonly>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Desv. Estándar (\(\sigma\))</label>
+                                            <input type="number" id="normal-sd-val" class="form-control" readonly>
+                                        </div>
                                     </div>
                                     <div class="form-group">
-                                        <label for="predict-adv-cost">Monto a Invertir en Publicidad (S/.)</label>
-                                        <input type="number" id="predict-adv-cost" class="form-control" value="180" min="0">
+                                        <label for="normal-x-target">Consultar Límite de Venta (X en S/.)</label>
+                                        <input type="number" id="normal-x-target" class="form-control" value="2000">
                                     </div>
-                                    <button class="btn btn-primary" id="btn-pronosticar-ventas" style="width:100%;">Pronosticar Venta Diaria</button>
-                                    
-                                    <div class="narrative-container" style="margin-top:20px;">
-                                        <h4>Ecuación Hallada:</h4>
-                                        <div class="parameter-value" id="stats-equation-val" style="font-size:16px; text-align:left; margin-bottom:10px;">Y = 0X + 0</div>
-                                        <div class="parameter-title">Coeficiente Pearson (r): <span id="stats-pearson-val" style="color:var(--text-primary); font-weight:600;">0.00</span></div>
-                                        <div class="parameter-title">Coeficiente R²: <span id="stats-r2-val" style="color:var(--text-primary); font-weight:600;">0%</span></div>
-                                        <hr style="border-color:var(--border); margin:12px 0;">
-                                        <div class="parameter-title">Venta Diaria Pronosticada:</div>
-                                        <div class="parameter-value" id="stats-predicted-sales-val">S/. 0.00</div>
-                                    </div>
-                                </div>
-                            </div>
+                                    <button class="btn btn-primary" id="btn-calcular-normal-area" style="width:100%; margin-bottom:16px;">Calcular Área de Probabilidad</button>
 
-                            <!-- Pronóstico de Inventario por Promedio Móvil -->
-                            <div class="chart-card" style="margin-top:24px;">
-                                <div class="chart-header">
-                                    <h3>Pronóstico de Agotamiento de Inventario (Promedio Móvil)</h3>
-                                </div>
-                                <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px; align-items:center; margin-bottom:20px;">
-                                    <div>
-                                        <label for="predict-select-prod">Seleccione un producto para predecir stockout:</label>
-                                        <select id="predict-select-prod" class="form-control" style="margin-top:8px;"></select>
+                                    <div class="narrative-container" style="margin-top:0;">
+                                        <h4>Cálculos Tipificados Z:</h4>
+                                        <div style="font-size:13px; font-weight:600; color:var(--primary-hover); margin-bottom:8px;" id="normal-z-result">Z = 0.00</div>
+                                        <ul class="narrative-text" id="normal-probability-results-text" style="font-size:12px;"></ul>
                                     </div>
-                                    <div>
-                                        <button class="btn btn-primary" id="btn-predecir-stockout" style="width:100%; margin-top:24px;">Calcular Días Restantes</button>
-                                    </div>
-                                </div>
-
-                                <div class="narrative-container" id="stockout-results-box" style="display:none;">
-                                    <h4>Diagnóstico de Quiebra de Stock:</h4>
-                                    <ul class="narrative-text" id="stockout-results-text">
-                                        <!-- Dinámico -->
-                                    </ul>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- SUB-VIEW 4: INTERPRETACIÓN AUTOMÁTICA NARRATIVA -->
-                        <div class="sub-stats-page" id="sub-stats-narrativo" style="display:none;">
-                            <h3 class="stats-section-title">Diagnóstico Estadístico Automatizado</h3>
-                            <div class="narrative-container" style="background-color: var(--bg-panel); border-color: var(--border);">
-                                <h4 style="font-size:16px;"><i class="fa-solid fa-brain"></i> Reporte Narrativo del Desempeño Empresarial</h4>
-                                <p style="color:var(--text-secondary); font-size:12px; margin-bottom:20px;">Este módulo analiza toda la información operativa registrada para redactar conclusiones automáticas basadas en métodos matemáticos.</p>
-                                <ul class="narrative-text" id="reporte-narrativo-completo">
-                                    <!-- Conclusiones automáticas -->
-                                </ul>
+                        <!-- SUB-VIEW 4: DISTRIBUCIONES MUESTRALES Y TAMAÑO DE MUESTRA -->
+                        <div class="sub-stats-page" id="sub-stats-muestrales" style="display:none;">
+                            <h3 class="stats-section-title">Teorema del Límite Central y Muestreo Científico</h3>
+                            
+                            <div class="charts-grid" style="grid-template-columns: 1.2fr 1fr;">
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Límites y Parámetros de Distribución Muestral</h3>
+                                    </div>
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:16px;">
+                                        Calculamos el error estándar y comportamiento asintótico basándonos en los datos del sistema.
+                                    </p>
+                                    <div class="narrative-container" style="margin-top:0;">
+                                        <h4>1. Dist. Muestral de la Media (\(\bar{X}\))</h4>
+                                        <ul class="narrative-text" id="muestral-media-text" style="font-size:12px; margin-bottom:16px;"></ul>
+                                        
+                                        <h4>2. Dist. Muestral de Proporción (\(P\))</h4>
+                                        <p style="font-size:11px; color:var(--text-secondary); margin-bottom:8px;">Proporción analizada: Boletas respecto a Facturas.</p>
+                                        <ul class="narrative-text" id="muestral-proporcion-text" style="font-size:12px; margin-bottom:16px;"></ul>
+
+                                        <h4>3. Diferencia de Dos Medias e Proporciones</h4>
+                                        <ul class="narrative-text" id="muestral-diferencias-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Cálculo Científico del Tamaño Muestral</h3>
+                                    </div>
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:12px;">
+                                        Calcula el tamaño \(n\) requerido para estimar la media de ventas.
+                                    </p>
+                                    <div class="form-group">
+                                        <label for="sample-n-poblacion">Tamaño Población (N) [Finito]</label>
+                                        <input type="number" id="sample-n-poblacion" class="form-control" value="500">
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="sample-z-level">Confianza (Z)</label>
+                                            <select id="sample-z-level" class="form-control">
+                                                <option value="1.645">90% (Z=1.645)</option>
+                                                <option value="1.96" selected>95% (Z=1.96)</option>
+                                                <option value="2.576">99% (Z=2.576)</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="sample-margin-e">Error Admitido (e)</label>
+                                            <input type="number" id="sample-margin-e" class="form-control" value="50" step="1">
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-primary" id="btn-calcular-sample-size" style="width:100%; margin-bottom:16px;">Calcular Tamaño de Muestra</button>
+
+                                    <div class="narrative-container" style="margin-top:0;">
+                                        <h4>Tamaños Muestrales Calculados:</h4>
+                                        <ul class="narrative-text" id="sample-size-results-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-VIEW 5: CONTRASTE DE HIPÓTESIS E INTERVALOS DE CONFIANZA -->
+                        <div class="sub-stats-page" id="sub-stats-inferencia" style="display:none;">
+                            <h3 class="stats-section-title">Contraste Estadístico e Intervalos de Estimación</h3>
+                            
+                            <div class="charts-grid" style="grid-template-columns: 1fr;">
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Estimación de Intervalos de Confianza</h3>
+                                    </div>
+                                    <div class="narrative-container" style="margin-top:0;">
+                                        <h4>1. Intervalo para la Media (Bilateral y Unilateral)</h4>
+                                        <ul class="narrative-text" id="ic-media-results-text" style="font-size:12px; margin-bottom:16px;"></ul>
+
+                                        <h4>2. Intervalo para la Proporción</h4>
+                                        <ul class="narrative-text" id="ic-proporcion-results-text" style="font-size:12px; margin-bottom:16px;"></ul>
+
+                                        <h4>3. Intervalo para Diferencia de Medias (Muestras Independientes)</h4>
+                                        <ul class="narrative-text" id="ic-diff-medias-results-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Pruebas de Hipótesis Relativas</h3>
+                                    </div>
+                                    <div style="padding:12px; background:var(--bg-main); border:1px dashed var(--border); border-radius:6px; font-size:12px; margin-bottom:16px;">
+                                        <b>Tipos de Errores en Decisiones:</b><br>
+                                        • <b>Error Tipo I (\(\alpha\)):</b> Rechazar la hipótesis nula siendo esta verdadera (Falso Positivo). Nivel fijado: 5%.<br>
+                                        • <b>Error Tipo II (\(\beta\)):</b> No rechazar la hipótesis nula siendo esta falsa (Falso Negativo).
+                                    </div>
+                                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-bottom:16px;">
+                                        <button class="btn btn-secondary" id="btn-test-hip-media" style="font-size:11px;">Prueba de Medias (Welch)</button>
+                                        <button class="btn btn-secondary" id="btn-test-hip-varianza" style="font-size:11px;">Prueba Varianzas (F-Test)</button>
+                                        <button class="btn btn-secondary" id="btn-test-hip-proporcion" style="font-size:11px;">Prueba Proporciones (Z-Test)</button>
+                                    </div>
+                                    <div class="narrative-container" id="test-hip-results-box" style="display:none; margin-top:0;">
+                                        <h4 id="test-hip-results-title">Resultado de Contraste:</h4>
+                                        <ul class="narrative-text" id="test-hip-results-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-VIEW 6: CHI-CUADRADO Y T-STUDENT -->
+                        <div class="sub-stats-page" id="sub-stats-chicuadrado" style="display:none;">
+                            <h3 class="stats-section-title">Pruebas Chi-Cuadrado de Independencia y Distribución T-Student</h3>
+                            
+                            <div class="charts-grid" style="grid-template-columns: 1.2fr 1fr;">
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Prueba Chi-Cuadrado (\(\chi^2\)) de Independencia</h3>
+                                    </div>
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:12px;">
+                                        Evaluamos la independencia de dos variables nominales del negocio: **"Método de Pago" vs "Categoría de Producto"**
+                                    </p>
+                                    <button class="btn btn-primary" id="btn-calcular-chicuadrado" style="margin-bottom:16px;">Ejecutar Chi-Cuadrado</button>
+                                    
+                                    <div class="data-table-container" style="box-shadow:none; overflow-x:auto; margin-bottom:16px;">
+                                        <table class="data-table" style="font-size:10px;">
+                                            <thead>
+                                                <tr id="chi-table-header"></tr>
+                                            </thead>
+                                            <tbody id="chi-table-body"></tbody>
+                                        </table>
+                                    </div>
+
+                                    <div class="narrative-container" id="chicuadrado-results-box" style="display:none; margin-top:0;">
+                                        <h4>Diagnóstico de Chi-Cuadrado:</h4>
+                                        <ul class="narrative-text" id="chicuadrado-results-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+
+                                <div class="chart-card">
+                                    <div class="chart-header">
+                                        <h3>Distribución T-Student y Estimaciones Pequeñas</h3>
+                                    </div>
+                                    <p style="font-size:11px; color:var(--text-secondary); margin-bottom:12px;">
+                                        La distribución T de Student es fundamental para estimar parámetros en **muestras pequeñas (n < 30)**. Posee mayor dispersión en las colas que la Normal.
+                                    </p>
+                                    <div class="form-group">
+                                        <label for="tstudent-n-samples">Tamaño de la Muestra (n)</label>
+                                        <input type="number" id="tstudent-n-samples" class="form-control" value="12" min="2" max="29">
+                                    </div>
+                                    <button class="btn btn-primary" id="btn-calcular-tstudent" style="width:100%; margin-bottom:16px;">Calcular T-Student</button>
+
+                                    <div class="narrative-container" style="margin-top:0;">
+                                        <h4>Propiedades T-Student Calculadas:</h4>
+                                        <ul class="narrative-text" id="tstudent-results-text" style="font-size:12px;"></ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SUB-VIEW 7: REPORTE COMPLETO PDF -->
+                        <div class="sub-stats-page" id="sub-stats-reportepdf" style="display:none;">
+                            <h3 class="stats-section-title">Exportar Expediente Estadístico a PDF</h3>
+                            
+                            <div class="chart-card">
+                                <div class="chart-header">
+                                    <h3>Expediente Analítico de SIGEA</h3>
+                                </div>
+                                <p style="font-size:12px; color:var(--text-secondary); margin-bottom:20px;">
+                                    Presiona el botón de abajo para compilar un reporte académico completo en formato PDF. Este reporte incluye la tabla de distribución de frecuencias Sturges, variables aleatorias, tamaño de muestra, intervalos de confianza y diagnósticos de pruebas de hipótesis con gráficos.
+                                </p>
+                                <button class="btn btn-primary" id="btn-exportar-pdf-documento" style="padding:16px 24px; font-size:14px; font-weight:600; width:100%;">
+                                    <i class="fa-solid fa-file-pdf"></i> Generar y Descargar Reporte en PDF
+                                </button>
+                            </div>
+
+                            <!-- ELEMENTO INVISIBLE/OCULTO QUE SE UTILIZA PARA RENDERIZAR EL PDF LIMPIO -->
+                            <div id="pdf-export-container" style="display:none; color:#000000; background:#FFFFFF; padding:30px; font-family: 'Helvetica Neue', Arial, sans-serif;">
+                                <h1 style="text-align:center; color:#1565C0; margin-bottom:8px;">SIGEA - Reporte Analítico de Operación</h1>
+                                <p style="text-align:center; font-size:12px; color:#555555; margin-bottom:24px;">Texteliria ACAREIA ATELIER - Informe Estadístico Académico</p>
+                                
+                                <hr style="border:1px solid #ddd; margin-bottom:20px;">
+
+                                <h3>1. Análisis Descriptivo Operativo</h3>
+                                <div id="pdf-descriptiva-content"></div>
+
+                                <h3 style="margin-top:30px;">2. Estimaciones e Intervalos de Confianza</h3>
+                                <div id="pdf-inferencial-content"></div>
+
+                                <h3 style="margin-top:30px;">3. Pruebas de Hipótesis y Significancia</h3>
+                                <div id="pdf-hypothesis-content"></div>
+
+                                <h3 style="margin-top:30px;">4. Distribuciones Muestrales</h3>
+                                <div id="pdf-muestreo-content"></div>
                             </div>
                         </div>
 
