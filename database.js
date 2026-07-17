@@ -207,7 +207,6 @@ function getSeedData() {
                 igv: igvCalculado,
                 total: totalVenta,
                 estado: 'EMITIDA',
-                con_promocion: conPromocion,
                 created_at: currentDate.toISOString()
             });
 
