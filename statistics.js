@@ -311,11 +311,10 @@ const Stats = {
 
     // Prueba de Hipótesis: ¿Las promociones (descuentos) aumentan el ticket promedio de ventas?
     // H0: El ticket promedio con promoción es menor o igual al ticket promedio sin promoción (u1 <= u2)
-    // H1: El ticket promedio con promoción es significativamente mayor (u1 > u2) - Prueba de una cola derecha.
     hypothesisTestingPromotions: (ventasHistoricas) => {
-        // Separar ventas en dos grupos
-        const grupoPromo = ventasHistoricas.filter(v => v.con_promocion).map(v => v.total);
-        const grupoControl = ventasHistoricas.filter(v => !v.con_promocion).map(v => v.total);
+        // Separar ventas en dos grupos: Con promoción (Descuento > 0) y Sin promoción (Descuento = 0)
+        const grupoPromo = ventasHistoricas.filter(v => v.descuento > 0).map(v => v.total);
+        const grupoControl = ventasHistoricas.filter(v => !(v.descuento > 0)).map(v => v.total);
         
         if (grupoPromo.length < 2 || grupoControl.length < 2) {
             return {

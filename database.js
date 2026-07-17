@@ -28,8 +28,8 @@ function initSupabase() {
             if (window.supabase) {
                 supabaseClient = window.supabase.createClient(dbConfig.url, dbConfig.key);
                 console.log("Cliente Supabase (supabaseClient) inicializado correctamente.");
-                // Intentar verificar y poblar datos si Supabase está vacío
-                verificarYEjecutarSemillaSupabase();
+                // Seeding desactivado por solicitud del usuario (todo real desde BD)
+                // verificarYEjecutarSemillaSupabase();
             } else {
                 console.warn("Librería de Supabase no cargada en el navegador.");
                 supabaseClient = null;

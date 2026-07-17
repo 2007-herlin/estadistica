@@ -120,8 +120,7 @@ function setupVentasEvents() {
             descuento: descVal,
             igv: igvCalc,
             total: totalNeto,
-            estado: 'EMITIDA',
-            con_promocion: descPct > 0
+            estado: 'EMITIDA'
         };
 
         const detalles = ventasCart.map(item => ({
