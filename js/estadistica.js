@@ -1,4 +1,4 @@
-// js/estadistica.js - Control del Panel de Estadísticas de SIGEA
+// js/estadistica.js - Control del Panel de Estadísticas de texteleria ACAREIA ATELIER
 
 const StatsCharts = {
     histograma: null,
@@ -25,6 +25,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }, 150);
 });
+
+// Función para compilar y formatear dinámicamente las fórmulas LaTeX con MathJax
+function typesetMath() {
+    if (window.MathJax && typeof window.MathJax.typesetPromise === 'function') {
+        window.MathJax.typesetPromise().catch(err => console.warn("MathJax typeset error:", err));
+    }
+}
 
 async function initEstadisticaModule() {
     // 1. Navegación de Sub-Páginas Estadísticas
@@ -89,7 +96,7 @@ async function triggerSubPageCalculations(subPage) {
             }
 
             if (dataset.length === 0) {
-                dataset = [0, 0, 0, 0, 0]; // Dataset ficticio mínimo para evitar caídas si la BD está vacía
+                dataset = [0, 0, 0, 0, 0]; // Evitar caídas si la BD está vacía
             }
 
             // Realizar cálculos descriptivos primarios
@@ -136,6 +143,9 @@ async function triggerSubPageCalculations(subPage) {
 
             // Dibujar gráficos descriptivos
             renderDescriptivaCharts(freqTable, dataset);
+            
+            // Compilar LaTeX
+            typesetMath();
         };
 
         document.getElementById('btn-calcular-descriptiva').click();
@@ -178,7 +188,7 @@ async function triggerSubPageCalculations(subPage) {
             const resultsText = document.getElementById('binomial-results-text');
             resultsText.innerHTML = `
                 <li><b>Probabilidad Empírica:</b> La tasa histórica de compra para esta categoría es <b>p = ${pReal.toFixed(4)}</b> (${(pReal * 100).toFixed(2)}%).</li>
-                <li><b>Éxito del Ensayo (Fórmula General):</b> \(P(X = k) = \\binom{n}{k} p^k q^{n-k}\)</li>
+                <li><b>Éxito del Ensayo (Fórmula General):</b> \\(P(X = k) = \\binom{n}{k} p^k q^{n-k}\\)</li>
                 <li><b>Probabilidad Exacta:</b> P(X = ${k}) = <b>${(probExacta * 100).toFixed(4)}%</b> (Probabilidad: ${probExacta.toFixed(6)})</li>
                 <li><b>Probabilidad Acumulada Mínima:</b> P(X >= ${k}) = <b>${(probAlMenos * 100).toFixed(4)}%</b></li>
                 <li><b>Probabilidad Acumulada Máxima:</b> P(X <= ${k}) = <b>${(probAlMaximo * 100).toFixed(4)}%</b></li>
@@ -188,6 +198,7 @@ async function triggerSubPageCalculations(subPage) {
                     <br>- Desviación estándar teórica: <b>&sigma; = ${desvBin.toFixed(4)}</b>.
                 </li>
             `;
+            typesetMath();
         };
 
         const runPoisson = () => {
@@ -209,14 +220,15 @@ async function triggerSubPageCalculations(subPage) {
 
             const resultsText = document.getElementById('poisson-results-text');
             resultsText.innerHTML = `
-                <li><b>Fórmula General de Poisson:</b> \(P(X = k) = \\frac{\\lambda^k e^{-\\lambda}}{k!}\)</li>
+                <li><b>Fórmula General de Poisson:</b> \\(P(X = k) = \\frac{\\lambda^k e^{-\\lambda}}{k!}\\)</li>
                 <li><b>Tasa Media de Eventos:</b> &lambda; = <b>${lambda}</b> por unidad de tiempo.</li>
                 <li><b>Probabilidad del Contraste:</b> El valor obtenido para el sentido seleccionado es de <b>${(pExact * 100).toFixed(4)}%</b> (Probabilidad: ${pExact.toFixed(6)}).</li>
-                <li><b>Aproximación a la Binomial:</b> Utilizando un tamaño de muestra hipotético grande \(n = 100\) con probabilidad baja \(p = ${pAprox.toFixed(4)}\):
+                <li><b>Aproximación a la Binomial:</b> Utilizando un tamaño de muestra hipotético grande \\(n = 100\\) con probabilidad baja \\(p = ${pAprox.toFixed(4)}\\):
                     <br>- Probabilidad por Binomial: <b>${(pBin * 100).toFixed(4)}%</b>.
                     <br>- Margen de error en aproximación: <b>${Math.abs(pBin - pExact).toFixed(6)}</b>.
                 </li>
             `;
+            typesetMath();
         };
 
         document.getElementById('btn-calcular-binomial').onclick = runBinomial;
@@ -252,10 +264,11 @@ async function triggerSubPageCalculations(subPage) {
             
             const resultsText = document.getElementById('normal-probability-results-text');
             resultsText.innerHTML = `
-                <li><b>Tipificación Z:</b> El valor transformado a la escala estándar es \(Z = \\frac{X - \\mu}{\\sigma} = \\frac{${xTarget} - ${meanVal.toFixed(2)}}{${sdVal.toFixed(2)}} = ${zScore.toFixed(4)}\).</li>
+                <li><b>Tipificación Z:</b> El valor transformado a la escala estándar es \\(Z = \\frac{X - \\mu}{\\sigma} = \\frac{${xTarget} - ${meanVal.toFixed(2)}}{${sdVal.toFixed(2)}} = ${zScore.toFixed(4)}\\).</li>
                 <li><b>P(X <= ${xTarget}):</b> Probabilidad de que la facturación diaria sea a lo mucho S/. ${xTarget.toFixed(2)} es del <b>${(pLess * 100).toFixed(4)}%</b>.</li>
                 <li><b>P(X > ${xTarget}):</b> Probabilidad de superar S/. ${xTarget.toFixed(2)} de facturación es del <b>${(pMore * 100).toFixed(4)}%</b>.</li>
             `;
+            typesetMath();
 
             // Dibujar campana de Gauss normalizada con el área coloreada
             drawNormalCurve(zScore);
@@ -282,9 +295,9 @@ async function triggerSubPageCalculations(subPage) {
 
             // 1. Distribución muestral de la media
             document.getElementById('muestral-media-text').innerHTML = `
-                <li>Media Poblacional estimada (\(\mu\)): <b>S/. ${meanVal.toFixed(2)}</b>.</li>
-                <li>Error Estándar de la Media (\(\sigma_{\bar{x}} = s / \sqrt{n}\)): <b>S/. ${errEst.toFixed(4)}</b>.</li>
-                <li><b>Interpretación:</b> Según el Teorema del Límite Central (TLC), si tomamos repetidas muestras de tamaño \(n = ${nSize}\), las medias muestrales se distribuirán normalmente alrededor de \(\mu\) con una desviación de \(\sigma_{\bar{x}}\).</li>
+                <li>Media Poblacional estimada (\\(\\mu\\)): <b>S/. ${meanVal.toFixed(2)}</b>.</li>
+                <li>Error Estándar de la Media (\\(\\sigma_{\\bar{x}} = s / \\sqrt{n}\\)): <b>S/. ${errEst.toFixed(4)}</b>.</li>
+                <li><b>Interpretación:</b> Según el Teorema del Límite Central (TLC), si tomamos repetidas muestras de tamaño \\(n = ${nSize}\\), las medias muestrales se distribuirán normalmente alrededor de \\(\\mu\\) con una desviación de \\(\\sigma_{\\bar{x}}\\).</li>
             `;
 
             // 2. Proporciones
@@ -293,11 +306,11 @@ async function triggerSubPageCalculations(subPage) {
             const seProp = Math.sqrt((propFact * (1 - propFact)) / (ventas.length || 30));
 
             document.getElementById('muestral-proporcion-text').innerHTML = `
-                <li>Proporción muestral (\(p\) Facturas): <b>${(propFact * 100).toFixed(2)}%</b>.</li>
-                <li>Error Estándar de la Proporción (\(\sigma_p = \sqrt{pq/n}\)): <b>${(seProp * 100).toFixed(4)}%</b>.</li>
+                <li>Proporción muestral (\\(p\\) Facturas): <b>${(propFact * 100).toFixed(2)}%</b>.</li>
+                <li>Error Estándar de la Proporción (\\(\\sigma_p = \\sqrt{pq/n}\\)): <b>${(seProp * 100).toFixed(4)}%</b>.</li>
             `;
 
-            // 3. Diferencia de dos medias (Efectivo vs Tarjeta/Medios Digitales)
+            // 3. Diferencia de dos medias
             const ventasEfec = ventas.filter(v => v.metodo_pago_id === 1 && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
             const ventasTarj = ventas.filter(v => v.metodo_pago_id !== 1 && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
             
@@ -312,12 +325,13 @@ async function triggerSubPageCalculations(subPage) {
             const seDiff = Math.sqrt((varE / nE) + (varT / nT));
 
             document.getElementById('muestral-diferencias-text').innerHTML = `
-                <li>Diferencia de Medias (\(\bar{X}_1 - \bar{X}_2\)): <b>S/. ${diffMeans.toFixed(2)}</b>.</li>
-                <li>Error Estándar de la Diferencia (\(\sigma_{\bar{x}_1-\bar{x}_2}\)): <b>S/. ${seDiff.toFixed(4)}</b>.</li>
+                <li>Diferencia de Medias (\\(\\bar{X}_1 - \\bar{X}_2\\)): <b>S/. ${diffMeans.toFixed(2)}</b>.</li>
+                <li>Error Estándar de la Diferencia (\\(\\sigma_{\\bar{x}_1-\\bar{x}_2}\\)): <b>S/. ${seDiff.toFixed(4)}</b>.</li>
             `;
 
             // 4. Calcular tamaño muestral
             calculateSampleSizes(ventas.length || 100, sdVal);
+            typesetMath();
         };
 
         const calculateSampleSizes = (N, sdVal) => {
@@ -327,10 +341,11 @@ async function triggerSubPageCalculations(subPage) {
             const nSizes = Stats.calculateSampleSize(N, zVal === 1.96 ? 0.95 : (zVal === 2.576 ? 0.99 : 0.90), eVal, sdVal);
             
             document.getElementById('sample-size-results-text').innerHTML = `
-                <li><b>Para Estimar una Proporción (Población Finita N = ${N}):</b> Se requiere una muestra de <b>n = ${nSizes.finiteProportions}</b> transacciones (bajo variabilidad máxima \(p=q=0.5\)).</li>
+                <li><b>Para Estimar una Proporción (Población Finita N = ${N}):</b> Se requiere una muestra de <b>n = ${nSizes.finiteProportions}</b> transacciones (bajo variabilidad máxima \\(p=q=0.5\\)).</li>
                 <li><b>Para Estimar la Media (Población Finita N = ${N}):</b> Se requiere una muestra de <b>n = ${nSizes.finiteMeans}</b> días de ventas analizados.</li>
-                <li><b>Para Estimar la Media (Población Infinita):</b> Se requiere una muestra de <b>n = ${nSizes.infiniteMeans}</b> observaciones (Desviación histórica \(\sigma = S/. ${sdVal.toFixed(2)}\)).</li>
+                <li><b>Para Estimar la Media (Población Infinita):</b> Se requiere una muestra de <b>n = ${nSizes.infiniteMeans}</b> observaciones (Desviación histórica \\(\\sigma = S/. ${sdVal.toFixed(2)}\\)).</li>
             `;
+            typesetMath();
         };
 
         document.getElementById('btn-calcular-sample-size').onclick = () => {
@@ -366,7 +381,7 @@ async function triggerSubPageCalculations(subPage) {
             const icMUni = Stats.confidenceIntervalMeanUnilateral(dataset, 0.95);
             document.getElementById('ic-media-results-text').innerHTML = `
                 <li><b>Intervalo Bilateral del 95%:</b> S/. ${icM.lower.toFixed(2)} &le; &mu; &le; S/. ${icM.upper.toFixed(2)} (Margen de error: &plusmn; S/. ${icM.margin.toFixed(2)}).</li>
-                <li><b>Intervalo Unilateral Superior del 95%:</b> Con un 95% de confianza, la media diaria histórica de facturación es mayor o igual a <b>S/. ${icMUni.lowerBound.toFixed(2)}</b> (\(\mu \ge S/. ${icMUni.lowerBound.toFixed(2)}\)).</li>
+                <li><b>Intervalo Unilateral Superior del 95%:</b> Con un 95% de confianza, la media diaria histórica de facturación es mayor o igual a <b>S/. ${icMUni.lowerBound.toFixed(2)}</b> (\\(\\mu \\ge S/. ${icMUni.lowerBound.toFixed(2)}\\)).</li>
             `;
 
             // 2. IC para la proporción de facturas
@@ -374,10 +389,10 @@ async function triggerSubPageCalculations(subPage) {
             const icP = Stats.confidenceIntervalProportion(countFact, ventas.length || 30, 0.95);
             document.getElementById('ic-proporcion-results-text').innerHTML = `
                 <li>Proporción observada de facturas: <b>${(icP.proportion * 100).toFixed(2)}%</b>.</li>
-                <li><b>Intervalo Bilateral del 95%:</b> ${(icP.lower * 100).toFixed(2)}% &le; \(p\) &le; ${(icP.upper * 100).toFixed(2)}% (Margen de error: &plusmn; ${(icP.margin * 100).toFixed(2)}%).</li>
+                <li><b>Intervalo Bilateral del 95%:</b> ${(icP.lower * 100).toFixed(2)}% &le; \\(p\\) &le; ${(icP.upper * 100).toFixed(2)}% (Margen de error: &plusmn; ${(icP.margin * 100).toFixed(2)}%).</li>
             `;
 
-            // 3. IC para la diferencia de medias (Boletas vs Facturas)
+            // 3. IC para la diferencia de medias
             const ventBoleta = ventas.filter(v => v.tipo_comprobante === 'BOLETA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
             const ventFactura = ventas.filter(v => v.tipo_comprobante === 'FACTURA' && v.estado === 'EMITIDA').map(v => parseFloat(v.total));
             
@@ -390,15 +405,14 @@ async function triggerSubPageCalculations(subPage) {
             
             const diff = meanF - meanB;
             const seDiff = Math.sqrt((varB / nB) + (varF / nF));
-            const dfWelch = Math.pow((varB/nB) + (varF/nF), 2) / ((Math.pow(varB/nB, 2)/(nB-1)) + (Math.pow(varF/nF, 2)/(nF-1)));
-            const tCritical = 1.96; // Valor Z aproximado para df grandes
-            
+            const tCritical = 1.96;
             const marginDiff = tCritical * seDiff;
 
             document.getElementById('ic-diff-medias-results-text').innerHTML = `
-                <li>Diferencia puntual (\(\bar{X}_{Factura} - \bar{X}_{Boleta}\)): <b>S/. ${diff.toFixed(2)}</b>.</li>
-                <li><b>Intervalo del 95%:</b> S/. ${(diff - marginDiff).toFixed(2)} &le; \(\mu_1 - \mu_2\) &le; S/. ${(diff + marginDiff).toFixed(2)}.</li>
+                <li>Diferencia puntual (\\(\\bar{X}_{Factura} - \\bar{X}_{Boleta}\\)): <b>S/. ${diff.toFixed(2)}</b>.</li>
+                <li><b>Intervalo del 95%:</b> S/. ${(diff - marginDiff).toFixed(2)} &le; \\(\\mu_1 - \\mu_2\\) &le; S/. ${(diff + marginDiff).toFixed(2)}.</li>
             `;
+            typesetMath();
         };
 
         // Pruebas de Hipótesis Eventos
@@ -417,15 +431,16 @@ async function triggerSubPageCalculations(subPage) {
             }
 
             text.innerHTML = `
-                <li><b>Hipótesis Nula (H0):</b> El ticket promedio con descuento es menor o igual al ticket promedio regular (\(\mu_{Descuento} \le \mu_{Regular}\)).</li>
-                <li><b>Hipótesis Alterna (H1):</b> El ticket con descuento es significativamente mayor (\(\mu_{Descuento} > \mu_{Regular}\)).</li>
+                <li><b>Hipótesis Nula (H0):</b> El ticket promedio con descuento es menor o igual al ticket promedio regular (\\(\\mu_{Descuento} \\le \\mu_{Regular}\\)).</li>
+                <li><b>Hipótesis Alterna (H1):</b> El ticket con descuento es significativamente mayor (\\(\\mu_{Descuento} > \\mu_{Regular}\\)).</li>
                 <li>Promedio con Descuento: <b>S/. ${test.mean_promo}</b> (N = ${test.n_promo})</li>
                 <li>Promedio Regular: <b>S/. ${test.mean_control}</b> (N = ${test.n_control})</li>
                 <li>Estadístico t obtenido: <b>t = ${test.t_statistic}</b> (Grados de libertad: df = ${test.df})</li>
                 <li>P-Valor obtenido: <b>p = ${test.p_value}</b> (alpha = 0.05)</li>
                 <li><b>Decisión:</b> <span style="font-weight:600; color:${test.rejectH0 ? 'var(--primary-hover)' : 'var(--danger)'};">${test.rejectH0 ? 'Rechazar H0' : 'No se rechaza H0'}</span>.</li>
-                <li><b>Explicación de Error Tipo I:</b> Consiste en concluir falsamente que el descuento eleva las ventas cuando en realidad la variación fue solo azarosa. La probabilidad de cometer este error está fijada en \(\alpha = 5\%\).</li>
+                <li><b>Explicación de Error Tipo I:</b> Consiste en concluir falsamente que el descuento eleva las ventas cuando en realidad la variación fue solo azarosa. La probabilidad de cometer este error está fijada en \\(\\alpha = 5\\%\\).</li>
             `;
+            typesetMath();
         };
 
         document.getElementById('btn-test-hip-varianza').onclick = () => {
@@ -445,15 +460,16 @@ async function triggerSubPageCalculations(subPage) {
                 return;
             }
 
-            const reject = testF.f_statistic > 2.0; // Región crítica aproximada para nivel 0.05
+            const reject = testF.f_statistic > 2.0;
             text.innerHTML = `
-                <li><b>H0:</b> La variabilidad de montos facturados es igual a la variabilidad de boletas (\(\sigma^2_{Factura} = \sigma^2_{Boleta}\)).</li>
-                <li><b>H1:</b> Las variabilidades son significativamente distintas (\(\sigma^2_{Factura} \ne \sigma^2_{Boleta}\)).</li>
+                <li><b>H0:</b> La variabilidad de montos facturados es igual a la variabilidad de boletas (\\(\\sigma^2_{Factura} = \\sigma^2_{Boleta}\\)).</li>
+                <li><b>H1:</b> Las variabilidades son significativamente distintas (\\(\\sigma^2_{Factura} \\ne \\sigma^2_{Boleta}\\)).</li>
                 <li>Varianza Facturas: <b>${testF.var1}</b> (df1 = ${testF.df1})</li>
                 <li>Varianza Boletas: <b>${testF.var2}</b> (df2 = ${testF.df2})</li>
                 <li>Estadístico F de Contraste: <b>F = ${testF.f_statistic}</b></li>
                 <li><b>Decisión:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0 (Varianzas heterogéneas)' : 'No se rechaza H0 (Varianzas homogéneas)'}</span>.</li>
             `;
+            typesetMath();
         };
 
         document.getElementById('btn-test-hip-proporcion').onclick = () => {
@@ -463,7 +479,6 @@ async function triggerSubPageCalculations(subPage) {
             resultsBox.style.display = 'block';
             title.textContent = "Contraste de Proporciones (Z-Test de dos proporciones):";
 
-            // Comparar proporción de boletas entre turnos o clientes (ejemplo: clientes con RUC que compran en efectivo vs tarjeta)
             const rucEfec = ventas.filter(v => v.metodo_pago_id === 1).length;
             const rucTarj = ventas.filter(v => v.metodo_pago_id !== 1).length;
             const nTotal = ventas.length || 30;
@@ -476,13 +491,14 @@ async function triggerSubPageCalculations(subPage) {
 
             const reject = testZ.pValue < 0.05;
             text.innerHTML = `
-                <li><b>H0:</b> Las proporciones de compra entre grupos son iguales (\(p_1 = p_2\)).</li>
-                <li><b>H1:</b> Las proporciones son diferentes (\(p_1 \ne p_2\)).</li>
+                <li><b>H0:</b> Las proporciones de compra entre grupos son iguales (\\(p_1 = p_2\\)).</li>
+                <li><b>H1:</b> Las proporciones son diferentes (\\(p_1 \\ne p_2\\)).</li>
                 <li>Proporción 1: <b>${(testZ.p1 * 100).toFixed(2)}%</b> | Proporción 2: <b>${(testZ.p2 * 100).toFixed(2)}%</b></li>
                 <li>Estadístico Z obtenido: <b>Z = ${testZ.z_statistic}</b></li>
                 <li>P-Valor obtenido: <b>p = ${testZ.pValue}</b></li>
                 <li><b>Decisión:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0' : 'No se rechaza H0'}</span>.</li>
             `;
+            typesetMath();
         };
 
         runIntervals();
@@ -497,13 +513,11 @@ async function triggerSubPageCalculations(subPage) {
             // Estructurar matriz observada
             const observed = Array(categories.length).fill(0).map(() => Array(payMethods.length).fill(0));
             
-            // Map de productos a categorías
             const prodMap = {};
             productos.forEach(p => {
                 prodMap[p.id] = p.categoria_id;
             });
             
-            // Map de ventas a método de pago
             const salePayMap = {};
             ventas.forEach(v => {
                 salePayMap[v.id] = v.metodo_pago_id;
@@ -576,11 +590,12 @@ async function triggerSubPageCalculations(subPage) {
             document.getElementById('chicuadrado-results-text').innerHTML = `
                 <li><b>H0 (Hipótesis Nula):</b> La Categoría del Producto y el Método de Pago utilizado son **variables independientes** (no hay correlación).</li>
                 <li><b>H1 (Hipótesis Alterna):</b> Las variables **son dependientes** (el método de pago varía según la categoría).</li>
-                <li>Estadístico Chi-Cuadrado de contraste: \(\chi^2 = <b>${result.chiSquare}</b>\)</li>
+                <li>Estadístico Chi-Cuadrado de contraste: \\(\\chi^2 = <b>${result.chiSquare}</b>\\)</li>
                 <li>Grados de Libertad del modelo: df = (r-1)*(c-1) = <b>${result.df}</b></li>
-                <li>Significancia empírica obtenida: <b>p-valor = ${result.pValue}</b> (nivel crítico \(\alpha = 0.05\))</li>
+                <li>Significancia empírica obtenida: <b>p-valor = ${result.pValue}</b> (nivel crítico \\(\\alpha = 0.05\\))</li>
                 <li><b>Decisión de Contraste:</b> <span style="font-weight:600; color:${reject ? 'var(--primary-hover)' : 'var(--danger)'};">${reject ? 'Rechazar H0 (Existe Dependencia Significativa)' : 'No se rechaza H0 (Independencia de variables)'}</span></li>
             `;
+            typesetMath();
         };
 
         // T-Student properties
@@ -588,7 +603,6 @@ async function triggerSubPageCalculations(subPage) {
             const n = parseInt(document.getElementById('tstudent-n-samples').value) || 10;
             const df = n - 1;
             
-            // Tabla simplificada T-Student crítica al 95% (Bilateral)
             const tTable95 = [
                 12.706, 4.303, 3.182, 2.776, 2.571, 2.447, 2.365, 2.306, 2.262, 2.228,
                 2.201, 2.179, 2.160, 2.145, 2.131, 2.120, 2.110, 2.101, 2.093, 2.086,
@@ -600,13 +614,14 @@ async function triggerSubPageCalculations(subPage) {
             text.innerHTML = `
                 <li>Tamaño muestral fijado: <b>n = ${n} observaciones</b>.</li>
                 <li>Grados de Libertad del modelo: df = n - 1 = <b>${df}</b>.</li>
-                <li>Valor crítico de contraste en tablas (\(t_{\alpha/2, df}\)): <b>t = \pm ${tCrit.toFixed(3)}</b> (para 95% de confianza bilateral).</li>
+                <li>Valor crítico de contraste en tablas (\\(t_{\\alpha/2, df}\\)): <b>t = \\pm ${tCrit.toFixed(3)}</b> (para 95% de confianza bilateral).</li>
                 <li><b>Propiedades T-Student:</b>
                     <br>- Es simétrica respecto a su media (cero).
                     <br>- Posee colas más anchas y pesadas que la campana normal estándar Z.
-                    <br>- A medida que los grados de libertad aumentan (\(n \to \infty\)), la distribución T-Student converge exactamente a la Normal Estándar.
+                    <br>- A medida que los grados de libertad aumentan (\\(n \\to \\infty\\)), la distribución T-Student converge exactamente a la Normal Estándar.
                 </li>
             `;
+            typesetMath();
         };
 
         document.getElementById('btn-calcular-chicuadrado').click();
@@ -646,7 +661,7 @@ async function triggerSubPageCalculations(subPage) {
             // Configurar PDF y compilar
             const opt = {
                 margin:       15,
-                filename:     'SIGEA_Reporte_Estadistico_Completo.pdf',
+                filename:     'ACAREIA_ATELIER_Reporte_Estadistico.pdf',
                 image:        { type: 'jpeg', quality: 0.98 },
                 html2canvas:  { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
                 jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -782,7 +797,6 @@ function renderVariableAleatoriaTable(detVentas) {
     const countMap = {};
     let totalTrans = 0;
     
-    // Agrupar productos comprados por venta para definir X
     const saleItemCounts = {};
     detVentas.forEach(d => {
         saleItemCounts[d.venta_id] = (saleItemCounts[d.venta_id] || 0) + d.cantidad;
@@ -831,10 +845,8 @@ function drawNormalCurve(zScore) {
     const graphWidth = width - 2 * padding;
     const graphHeight = height - 2 * padding;
     
-    // Limpiar canvas
     ctx.clearRect(0, 0, width, height);
     
-    // Dibujar línea base del eje X
     ctx.beginPath();
     ctx.strokeStyle = '#424242';
     ctx.lineWidth = 2;
@@ -850,7 +862,7 @@ function drawNormalCurve(zScore) {
     }
     
     function toScreenY(yVal) {
-        const yMax = 0.45; // Densidad máxima para escalar
+        const yMax = 0.45;
         return height - padding - (yVal / yMax) * graphHeight;
     }
     
@@ -858,7 +870,6 @@ function drawNormalCurve(zScore) {
         return Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
     }
     
-    // 1. Sombrear área de probabilidad acumulada (Z-Score)
     ctx.beginPath();
     ctx.fillStyle = 'rgba(21, 101, 192, 0.4)';
     ctx.moveTo(toScreenX(xMin), toScreenY(0));
@@ -872,7 +883,6 @@ function drawNormalCurve(zScore) {
     ctx.closePath();
     ctx.fill();
     
-    // 2. Dibujar curva campana de Gauss
     ctx.beginPath();
     ctx.strokeStyle = '#1565C0';
     ctx.lineWidth = 3;
@@ -887,7 +897,6 @@ function drawNormalCurve(zScore) {
     }
     ctx.stroke();
     
-    // 3. Dibujar línea vertical de la posición Z-score actual
     const zScreenX = toScreenX(zLimit);
     ctx.beginPath();
     ctx.strokeStyle = '#EF6C00';
@@ -898,13 +907,11 @@ function drawNormalCurve(zScore) {
     ctx.stroke();
     ctx.setLineDash([]);
     
-    // Texto Z superior
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '10px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('Z = ' + zScore.toFixed(2), zScreenX, toScreenY(normalPDF(zLimit)) - 10);
     
-    // Dibujar marcadores en el eje X (-3, -2, -1, 0, 1, 2, 3)
     ctx.fillStyle = '#BDBDBD';
     for (let tick = -3; tick <= 3; tick++) {
         const tx = toScreenX(tick);

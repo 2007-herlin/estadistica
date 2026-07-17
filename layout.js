@@ -91,8 +91,8 @@ function injectSidebar() {
 
     sidebar.innerHTML = `
         <div class="sidebar-logo">
-            <i class="fa-solid fa-calculator"></i>
-            <span>SIGEA</span>
+            <i class="fa-solid fa-scissors"></i>
+            <span style="font-size: 16px; font-weight: 700; letter-spacing: 0.5px;">ACAREIA ATELIER</span>
         </div>
         
         <ul class="sidebar-menu">
