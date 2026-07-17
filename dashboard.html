@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Dashboard</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Chart.js para los gráficos interactivos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyectará dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyectará dinámicamente aquí -->
+            <div class="view-container">
+                
+                <!-- Tarjetas KPI -->
+                <div class="kpi-grid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon success"><i class="fa-solid fa-calendar-day"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Ventas del Día</span>
+                            <span class="kpi-value" id="kpi-ventas-dia">S/. 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon primary"><i class="fa-solid fa-calendar-days"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Ventas del Mes</span>
+                            <span class="kpi-value" id="kpi-ventas-mes">S/. 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon success"><i class="fa-solid fa-hand-holding-dollar"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Ingresos Totales</span>
+                            <span class="kpi-value" id="kpi-ingresos">S/. 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon primary"><i class="fa-solid fa-chart-pie"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Utilidad Est.</span>
+                            <span class="kpi-value" id="kpi-utilidad">S/. 0.00</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon warning"><i class="fa-solid fa-users"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Clientes</span>
+                            <span class="kpi-value" id="kpi-clientes">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon primary"><i class="fa-solid fa-boxes-stacked"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Productos</span>
+                            <span class="kpi-value" id="kpi-productos">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon danger"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Stock Crítico</span>
+                            <span class="kpi-value" id="kpi-stock-critico">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon success"><i class="fa-solid fa-cart-flatbed-suitcase"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Unids Vendidas</span>
+                            <span class="kpi-value" id="kpi-unidades-vendidas">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon primary"><i class="fa-solid fa-receipt"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Ticket Promedio</span>
+                            <span class="kpi-value" id="kpi-ticket-promedio">S/. 0.00</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Alertas del sistema -->
+                <div class="alerts-section">
+                    <div class="alerts-header">
+                        <i class="fa-solid fa-bell"></i>
+                        <h3>Alertas Inteligentes & Diagnósticos del Negocio</h3>
+                    </div>
+                    <div class="alerts-list" id="dashboard-alerts-list">
+                        <div class="alert-item info">
+                            <div class="alert-message">
+                                <i class="fa-solid fa-circle-info"></i>
+                                <span>Cargando diagnósticos y alertas en tiempo real...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gráficos del Dashboard -->
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Ventas Diarias (Últimos 30 días)</h3>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chart-ventas-diarias"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Distribución de Ventas por Categoría</h3>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chart-ventas-categoria"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Top 5 Productos Más Vendidos</h3>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chart-top-productos"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Clientes Frecuentes (Compras Realizadas)</h3>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="chart-clientes-frecuentes"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Panel Inteligente Adicional (Smart Analytics) -->
+                <h2 class="stats-section-title" style="margin-top: 32px; border-bottom: 1px solid var(--border); padding-bottom: 8px;">
+                    <i class="fa-solid fa-brain" style="color: var(--primary-hover); margin-right: 8px;"></i>
+                    Módulo de Inteligencia de Negocios (KPIs Avanzados)
+                </h2>
+                <div class="smart-analytics-grid">
+                    <div class="smart-card success">
+                        <span class="smart-card-title">Producto Más Rentable</span>
+                        <div class="smart-card-content">
+                            <div class="smart-card-metric" id="smart-prod-rentable">-</div>
+                            <div class="smart-card-label" id="smart-prod-rentable-val">Margen bruto: S/. 0.00</div>
+                        </div>
+                    </div>
+                    <div class="smart-card danger">
+                        <span class="smart-card-title">Producto Menos Vendido</span>
+                        <div class="smart-card-content">
+                            <div class="smart-card-metric" id="smart-prod-menos-vendido">-</div>
+                            <div class="smart-card-label" id="smart-prod-menos-vendido-val">0 unidades vendidas</div>
+                        </div>
+                    </div>
+                    <div class="smart-card success">
+                        <span class="smart-card-title">Cliente VIP del Mes</span>
+                        <div class="smart-card-content">
+                            <div class="smart-card-metric" id="smart-cliente-vip">-</div>
+                            <div class="smart-card-label" id="smart-cliente-vip-val">Total gastado: S/. 0.00</div>
+                        </div>
+                    </div>
+                    <div class="smart-card warning">
+                        <span class="smart-card-title">Categoría Líder</span>
+                        <div class="smart-card-content">
+                            <div class="smart-card-metric" id="smart-categoria-lider">-</div>
+                            <div class="smart-card-label" id="smart-categoria-lider-val">Participación: 0%</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="statistics.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

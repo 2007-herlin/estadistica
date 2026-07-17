@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Compras</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <div class="transaction-layout">
+                    <!-- Carrito de Compra -->
+                    <div class="cart-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <h3 style="font-family: var(--font-header);">Abastecimiento de Inventario (Compras)</h3>
+                            <button class="btn btn-secondary" id="btn-compras-historial-toggle"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Compras</button>
+                        </div>
+                        
+                        <!-- Búsqueda y Adición de Producto -->
+                        <div style="display:grid; grid-template-columns: 2fr 1fr 100px; gap:12px; margin-bottom:20px;">
+                            <select id="compra-select-producto" class="form-control">
+                                <option value="">Seleccione un producto...</option>
+                            </select>
+                            <input type="number" id="compra-cantidad" class="form-control" placeholder="Cant." min="1" value="1">
+                            <button class="btn btn-primary" id="btn-compra-agregar-item"><i class="fa-solid fa-plus"></i> Agregar</button>
+                        </div>
+
+                        <div class="cart-items-list" id="compra-cart-container">
+                            <div class="cart-item-row header">
+                                <span>Producto</span>
+                                <span>Costo Unit.</span>
+                                <span>Cant.</span>
+                                <span>Subtotal</span>
+                                <span></span>
+                            </div>
+                            <div id="compra-cart-items-wrapper">
+                                <!-- Dinámico -->
+                                <div style="text-align:center; padding:32px; color:var(--text-secondary);">El carrito está vacío. Agregue productos a comprar.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Totales de Compra -->
+                    <div class="summary-card">
+                        <h3 style="font-family: var(--font-header); margin-bottom:20px;">Datos del Proveedor</h3>
+                        <form id="compra-form-checkout">
+                            <div class="form-group">
+                                <label for="compra-select-proveedor">Proveedor</label>
+                                <select id="compra-select-proveedor" class="form-control" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="compra-numero-comprobante">Nº Comprobante Proveedor</label>
+                                <input type="text" id="compra-numero-comprobante" class="form-control" placeholder="Ej. F001-00045" required>
+                            </div>
+
+                            <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+                                <div class="summary-row">
+                                    <span>Subtotal Neto</span>
+                                    <span id="compra-sum-subtotal">S/. 0.00</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>IGV (18%)</span>
+                                    <span id="compra-sum-igv">S/. 0.00</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>TOTAL DE COMPRA</span>
+                                    <span id="compra-sum-total">S/. 0.00</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success" style="width:100%; margin-top:24px; padding:14px; font-size:14px;">
+                                <i class="fa-solid fa-file-import"></i> Registrar e Incrementar Stock
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Panel Historial de Compras (Oculto inicialmente) -->
+                <div id="section-historial-compras" class="data-table-container" style="margin-top:32px; display:none;">
+                    <div class="table-toolbar">
+                        <span class="table-title">Historial de Compras Realizadas</span>
+                        <button class="btn btn-secondary btn-icon" id="btn-cerrar-historial-compras"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Nº Factura</th>
+                                <th>Proveedor</th>
+                                <th>Subtotal</th>
+                                <th>IGV</th>
+                                <th>Total</th>
+                                <th>Registrado Por</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="compras-historial-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DETALLE DE TRANSACCIÓN -->
+    <div class="modal-overlay" id="modal-detalle-transaccion">
+        <div class="modal-panel" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="modal-detalle-transaccion-title">Detalle de Comprobante</h3>
+                <button class="modal-close" id="btn-modal-detalle-transaccion-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:12px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+                    <div>
+                        <p><b>Comprobante:</b> <span id="det-trans-nro">-</span></p>
+                        <p><b>Fecha:</b> <span id="det-trans-fecha">-</span></p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p><b>Entidad:</b> <span id="det-trans-entidad">-</span></p>
+                        <p><b>Atendido por:</b> <span id="det-trans-usuario">-</span></p>
+                    </div>
+                </div>
+                
+                <table class="data-table" style="font-size:12px; margin-bottom:16px;">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th style="text-align:right;">P. Unit</th>
+                            <th style="text-align:center;">Cant.</th>
+                            <th style="text-align:right;">Descuento</th>
+                            <th style="text-align:right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="det-trans-items-body">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+                
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-weight:600;">
+                    <div>Subtotal: <span id="det-trans-subtotal" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div>Descuento: <span id="det-trans-descuento" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div>IGV (18%): <span id="det-trans-igv" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div style="font-size:16px; color:var(--primary-hover); margin-top:8px;">TOTAL: <span id="det-trans-total">S/. 0.00</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-modal-detalle-transaccion-cerrar">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/compras.js"></script>
+</body>
+</html>

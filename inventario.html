@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Inventario</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <!-- KPI de Stock rápido -->
+                <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr);">
+                    <div class="kpi-card">
+                        <div class="kpi-icon primary"><i class="fa-solid fa-cubes"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Stock Total en Almacén</span>
+                            <span class="kpi-value" id="inv-kpi-stock-total">0 unids</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon warning"><i class="fa-solid fa-circle-down"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Productos en Stock Mínimo</span>
+                            <span class="kpi-value" id="inv-kpi-bajo-minimo">0</span>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon danger"><i class="fa-solid fa-circle-xmark"></i></div>
+                        <div class="kpi-data">
+                            <span class="kpi-title">Productos Agotados</span>
+                            <span class="kpi-value" id="inv-kpi-agotados">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestañas de Inventario / Kardex -->
+                <div style="display:flex; gap:16px; margin-bottom:20px;">
+                    <button class="btn btn-primary" id="btn-tab-inventario-actual">Stock Actual</button>
+                    <button class="btn btn-secondary" id="btn-tab-inventario-kardex">Historial de Movimientos (Kardex)</button>
+                </div>
+
+                <!-- Panel 1: Stock Actual -->
+                <div class="data-table-container" id="panel-inventario-actual">
+                    <div class="table-toolbar">
+                        <span class="table-title">Control de Existencias</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Stock Actual</th>
+                                <th>Stock Mínimo</th>
+                                <th>Estado Alerta</th>
+                                <th>Último Movimiento</th>
+                                <th style="width:140px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventario-actual-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Panel 2: Kardex (Oculto inicialmente) -->
+                <div class="data-table-container" id="panel-inventario-kardex" style="display:none;">
+                    <div class="table-toolbar">
+                        <span class="table-title">Kardex Diario de Almacén</span>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Código</th>
+                                <th>Producto</th>
+                                <th>Tipo Mov.</th>
+                                <th>Cantidad</th>
+                                <th>Stock Ant.</th>
+                                <th>Stock Nuevo</th>
+                                <th>Motivo / Referencia</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventario-kardex-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL AJUSTE DE STOCK MANUAL -->
+    <div class="modal-overlay" id="modal-inventario-ajuste">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3>Ajustar Existencias en Almacén</h3>
+                <button class="modal-close" id="btn-modal-ajuste-close">&times;</button>
+            </div>
+            <form id="form-inventario-ajuste">
+                <input type="hidden" id="ajuste-producto-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Producto a Ajustar</label>
+                        <input type="text" id="ajuste-producto-nombre" class="form-control" readonly>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Stock Registrado</label>
+                            <input type="text" id="ajuste-stock-actual" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="ajuste-stock-nuevo">Stock Físico Real</label>
+                            <input type="number" id="ajuste-stock-nuevo" class="form-control" required min="0" placeholder="Ingrese conteo real">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="ajuste-motivo">Motivo del Ajuste</label>
+                        <select id="ajuste-motivo" class="form-control" required>
+                            <option value="Conteo Físico / Inventario Anual">Conteo Físico / Inventario Anual</option>
+                            <option value="Regularización de mermas">Regularización de mermas</option>
+                            <option value="Rotura de mercadería / Daño">Rotura de mercadería / Daño</option>
+                            <option value="Devolución de cliente">Devolución de cliente</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-modal-ajuste-cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Confirmar Ajuste</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/inventario.js"></script>
+</body>
+</html>

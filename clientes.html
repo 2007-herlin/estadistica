@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Clientes</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <div class="data-table-container">
+                    <div class="table-toolbar">
+                        <span class="table-title">Cartera de Clientes</span>
+                        <div class="table-actions">
+                            <div class="search-input-wrapper">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="clientes-search" class="search-input" placeholder="Buscar cliente...">
+                            </div>
+                            <button class="btn btn-primary" id="btn-cliente-nuevo">
+                                <i class="fa-solid fa-plus"></i> Nuevo Cliente
+                            </button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Documento</th>
+                                <th>Número</th>
+                                <th>Nombre / Razón Social</th>
+                                <th>Teléfono</th>
+                                <th>Correo</th>
+                                <th>Dirección</th>
+                                <th style="width:140px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientes-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL CRUD DE CLIENTES -->
+    <div class="modal-overlay" id="modal-cliente">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3 id="modal-cliente-title">Registrar Cliente</h3>
+                <button class="modal-close" id="btn-modal-cliente-close">&times;</button>
+            </div>
+            <form id="form-cliente">
+                <input type="hidden" id="cliente-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cliente-tipo-doc">Tipo Documento</label>
+                            <select id="cliente-tipo-doc" class="form-control" required>
+                                <option value="DNI">DNI</option>
+                                <option value="RUC">RUC</option>
+                                <option value="CE">C.E.</option>
+                                <option value="PAS">Pasaporte</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="cliente-num-doc">Número Documento</label>
+                            <input type="text" id="cliente-num-doc" class="form-control" required placeholder="Número">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cliente-nombre">Nombres / Razón Social</label>
+                        <input type="text" id="cliente-nombre" class="form-control" required placeholder="Nombres completos">
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="cliente-telefono">Teléfono</label>
+                            <input type="text" id="cliente-telefono" class="form-control" placeholder="Ej. 987654321">
+                        </div>
+                        <div class="form-group">
+                            <label for="cliente-correo">Correo electrónico</label>
+                            <input type="email" id="cliente-correo" class="form-control" placeholder="correo@ejemplo.com">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="cliente-direccion">Dirección</label>
+                        <input type="text" id="cliente-direccion" class="form-control" placeholder="Dirección física">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-modal-cliente-cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL HISTORIAL DE COMPRAS CLIENTE -->
+    <div class="modal-overlay" id="modal-historial-cliente">
+        <div class="modal-panel" style="max-width: 700px;">
+            <div class="modal-header">
+                <h3 id="modal-historial-cliente-title">Historial de Compras de Cliente</h3>
+                <button class="modal-close" id="btn-modal-historial-cliente-close">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 450px; overflow-y: auto;">
+                <div class="narrative-container" style="margin-top:0; margin-bottom:16px;">
+                    <h4>Frecuencia de Consumo:</h4>
+                    <ul class="narrative-text" id="modal-historial-cliente-stats">
+                        <!-- Dinámico -->
+                    </ul>
+                </div>
+                <table class="data-table" style="font-size:12px;">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Comprobante</th>
+                            <th>Descuento</th>
+                            <th>Importe Total</th>
+                            <th>Método Pago</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-historial-cliente-table-body">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-modal-historial-cliente-cerrar">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="statistics.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/clientes.js"></script>
+</body>
+</html>

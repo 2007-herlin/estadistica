@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Iniciar Sesión</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body style="background-color: var(--bg-main);">
+
+    <!-- OVERLAY DE LOGIN (Página Completa) -->
+    <div class="login-overlay active" id="login-overlay" style="position: relative; height: 100vh;">
+        <div class="login-card">
+            <button id="btn-toggle-login-config" style="position: absolute; top: 16px; right: 16px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; font-size: 16px;" title="Configuración de Base de Datos">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+
+            <div class="login-logo">
+                <i class="fa-solid fa-calculator"></i>
+                <span>SIGEA</span>
+            </div>
+            <div class="login-subtitle">ERP Inteligente & Analítica Estadística</div>
+
+            <!-- Accordion de Configuración de BD -->
+            <div id="login-db-accordion" style="display: none; margin: 15px 0; padding: 12px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 8px; text-align: left; font-size: 12px;">
+                <h4 style="margin-top: 0; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>Conexión de Base de Datos</span>
+                    <button type="button" class="btn btn-secondary" id="btn-login-restaurar-db" style="padding: 2px 6px; font-size: 10px;">Restaurar</button>
+                </h4>
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                    <input type="checkbox" id="login-use-supabase" style="width: 16px; height: 16px; cursor: pointer;">
+                    <label for="login-use-supabase" style="margin-bottom: 0; cursor: pointer;">Usar base de datos remota Supabase</label>
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label for="login-supabase-url" style="font-size: 10px;">URL Supabase</label>
+                    <input type="url" id="login-supabase-url" class="form-control" style="padding: 6px; font-size: 11px;">
+                </div>
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="login-supabase-key" style="font-size: 10px;">Anon Key / Secret Key</label>
+                    <input type="password" id="login-supabase-key" class="form-control" style="padding: 6px; font-size: 11px;">
+                </div>
+                <button type="button" class="btn btn-primary" id="btn-login-guardar-db" style="width: 100%; padding: 8px; font-size: 11px;">Aplicar Configuración</button>
+            </div>
+            
+            <div class="login-error" id="login-error-msg">Usuario o contraseña incorrectos.</div>
+            
+            <form id="login-form">
+                <div class="form-group" style="text-align: left;">
+                    <label for="login-username">Usuario</label>
+                    <input type="text" id="login-username" class="form-control" placeholder="Ingrese usuario (ej. admin)" required autocomplete="username">
+                </div>
+                <div class="form-group" style="text-align: left;">
+                    <label for="login-password">Contraseña</label>
+                    <input type="password" id="login-password" class="form-control" placeholder="Ingrese contraseña (ej. Admin@123)" required autocomplete="current-password">
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 10px; padding: 12px;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Ingresar al Sistema
+                </button>
+            </form>
+            <div style="margin-top: 20px; font-size: 11px; color: var(--text-secondary);">
+                seguridad: <b>v.1.1.0-2026</b>  <b></b>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONTENEDOR DE TOASTS -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="layout.js"></script>
+    <script src="database.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>

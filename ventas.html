@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Ventas</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <div class="transaction-layout">
+                    <!-- Carrito de Venta -->
+                    <div class="cart-card">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                            <h3 style="font-family: var(--font-header);">Carrito de Ventas</h3>
+                            <button class="btn btn-secondary" id="btn-ventas-historial-toggle"><i class="fa-solid fa-clock-rotate-left"></i> Historial de Ventas</button>
+                        </div>
+                        
+                        <!-- Búsqueda y Adición de Producto -->
+                        <div style="display:grid; grid-template-columns: 2fr 1fr 100px; gap:12px; margin-bottom:20px;">
+                            <select id="venta-select-producto" class="form-control">
+                                <option value="">Seleccione un producto...</option>
+                            </select>
+                            <input type="number" id="venta-cantidad" class="form-control" placeholder="Cant." min="1" value="1">
+                            <button class="btn btn-primary" id="btn-venta-agregar-item"><i class="fa-solid fa-plus"></i> Agregar</button>
+                        </div>
+
+                        <div class="cart-items-list" id="venta-cart-container">
+                            <div class="cart-item-row header">
+                                <span>Producto</span>
+                                <span>P. Unit</span>
+                                <span>Cant.</span>
+                                <span>Subtotal</span>
+                                <span></span>
+                            </div>
+                            <div id="venta-cart-items-wrapper">
+                                <!-- Dinámico -->
+                                <div style="text-align:center; padding:32px; color:var(--text-secondary);">El carrito está vacío. Agregue productos.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Panel de Emisión / Totales -->
+                    <div class="summary-card">
+                        <h3 style="font-family: var(--font-header); margin-bottom:20px;">Datos del Comprobante</h3>
+                        <form id="venta-form-checkout">
+                            <div class="form-group">
+                                <label for="venta-select-cliente">Cliente</label>
+                                <select id="venta-select-cliente" class="form-control" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="venta-tipo-comprobante">Tipo Comprobante</label>
+                                <select id="venta-tipo-comprobante" class="form-control">
+                                    <option value="BOLETA">Boleta</option>
+                                    <option value="FACTURA">Factura</option>
+                                    <option value="TICKET">Ticket</option>
+                                </select>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="venta-metodo-pago">Método de Pago</label>
+                                    <select id="venta-metodo-pago" class="form-control" required></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="venta-descuento-pct">Descuento (%)</label>
+                                    <input type="number" id="venta-descuento-pct" class="form-control" min="0" max="100" value="0">
+                                </div>
+                            </div>
+
+                            <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px;">
+                                <div class="summary-row">
+                                    <span>Subtotal</span>
+                                    <span id="venta-sum-subtotal">S/. 0.00</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>Descuento</span>
+                                    <span id="venta-sum-descuento">S/. 0.00</span>
+                                </div>
+                                <div class="summary-row">
+                                    <span>IGV (18%)</span>
+                                    <span id="venta-sum-igv">S/. 0.00</span>
+                                </div>
+                                <div class="summary-row total">
+                                    <span>TOTAL</span>
+                                    <span id="venta-sum-total">S/. 0.00</span>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-success" style="width:100%; margin-top:24px; padding:14px; font-size:14px;">
+                                <i class="fa-solid fa-print"></i> Registrar y Emitir Boleta
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Panel Historial de Ventas (Oculto inicialmente) -->
+                <div id="section-historial-ventas" class="data-table-container" style="margin-top:32px; display:none;">
+                    <div class="table-toolbar">
+                        <span class="table-title">Historial de Ventas Registradas</span>
+                        <button class="btn btn-secondary btn-icon" id="btn-cerrar-historial-ventas"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Comprobante</th>
+                                <th>Cliente</th>
+                                <th>Método Pago</th>
+                                <th>Descuento</th>
+                                <th>Total</th>
+                                <th>Usuario</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ventas-historial-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL DETALLE DE TRANSACCIÓN -->
+    <div class="modal-overlay" id="modal-detalle-transaccion">
+        <div class="modal-panel" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3 id="modal-detalle-transaccion-title">Detalle de Comprobante</h3>
+                <button class="modal-close" id="btn-modal-detalle-transaccion-close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:12px; border-bottom:1px solid var(--border); padding-bottom:12px;">
+                    <div>
+                        <p><b>Comprobante:</b> <span id="det-trans-nro">-</span></p>
+                        <p><b>Fecha:</b> <span id="det-trans-fecha">-</span></p>
+                    </div>
+                    <div style="text-align:right;">
+                        <p><b>Entidad:</b> <span id="det-trans-entidad">-</span></p>
+                        <p><b>Atendido por:</b> <span id="det-trans-usuario">-</span></p>
+                    </div>
+                </div>
+                
+                <table class="data-table" style="font-size:12px; margin-bottom:16px;">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th style="text-align:right;">P. Unit</th>
+                            <th style="text-align:center;">Cant.</th>
+                            <th style="text-align:right;">Descuento</th>
+                            <th style="text-align:right;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody id="det-trans-items-body">
+                        <!-- Dinámico -->
+                    </tbody>
+                </table>
+                
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; font-weight:600;">
+                    <div>Subtotal: <span id="det-trans-subtotal" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div>Descuento: <span id="det-trans-descuento" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div>IGV (18%): <span id="det-trans-igv" style="color:var(--text-secondary);">S/. 0.00</span></div>
+                    <div style="font-size:16px; color:var(--primary-hover); margin-top:8px;">TOTAL: <span id="det-trans-total">S/. 0.00</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btn-modal-detalle-transaccion-cerrar">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/ventas.js"></script>
+</body>
+</html>

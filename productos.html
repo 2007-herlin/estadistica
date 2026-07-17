@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Productos</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <div class="data-table-container">
+                    <div class="table-toolbar">
+                        <span class="table-title">Catálogo de Productos</span>
+                        <div class="table-actions">
+                            <div class="search-input-wrapper">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="productos-search" class="search-input" placeholder="Buscar producto...">
+                            </div>
+                            <button class="btn btn-primary" id="btn-producto-nuevo">
+                                <i class="fa-solid fa-plus"></i> Nuevo Producto
+                            </button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Categoría</th>
+                                <th>Marca</th>
+                                <th>Precio Compra</th>
+                                <th>Precio Venta</th>
+                                <th>Stock Mín.</th>
+                                <th>Unidad</th>
+                                <th style="width:120px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productos-table-body">
+                            <!-- Dinámico -->
+                        </tbody>
+                    </table>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL CRUD DE PRODUCTOS -->
+    <div class="modal-overlay" id="modal-producto">
+        <div class="modal-panel">
+            <div class="modal-header">
+                <h3 id="modal-producto-title">Registrar Producto</h3>
+                <button class="modal-close" id="btn-modal-producto-close">&times;</button>
+            </div>
+            <form id="form-producto">
+                <input type="hidden" id="producto-id">
+                <div class="modal-body">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="producto-codigo">Código Único</label>
+                            <input type="text" id="producto-codigo" class="form-control" required placeholder="Ej. TEL-001">
+                        </div>
+                        <div class="form-group">
+                            <label for="producto-nombre">Nombre Comercial</label>
+                            <input type="text" id="producto-nombre" class="form-control" required placeholder="Nombre descriptivo">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="producto-categoria">Categoría</label>
+                            <select id="producto-categoria" class="form-control" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="producto-marca">Marca</label>
+                            <select id="producto-marca" class="form-control" required></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="producto-precio-compra">Costo Compra (S/.)</label>
+                            <input type="number" id="producto-precio-compra" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                        <div class="form-group">
+                            <label for="producto-precio-venta">Precio Venta (S/.)</label>
+                            <input type="number" id="producto-precio-venta" class="form-control" step="0.01" min="0" required placeholder="0.00">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="producto-stock-minimo">Stock Mínimo Alerta</label>
+                            <input type="number" id="producto-stock-minimo" class="form-control" value="5" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="producto-unidad">Unidad de Medida</label>
+                            <select id="producto-unidad" class="form-control">
+                                <option value="UNIDAD">Unidad (UND)</option>
+                                <option value="METRO">Metro (MET)</option>
+                                <option value="PAQUETE">Paquete (PAQ)</option>
+                                <option value="FRASCO">Frasco (FRA)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="producto-descripcion">Descripción del Producto</label>
+                        <input type="text" id="producto-descripcion" class="form-control" placeholder="Detalles o especificaciones">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" id="btn-modal-producto-cancelar">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Producto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/productos.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIGEA - Configuración</title>
+    <!-- FontAwesome para íconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
+    <!-- Hojas de estilos -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- Supabase JS Client library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <div class="app-container">
+        <!-- Sidebar se inyecta dinámicamente aquí -->
+        <main class="main-content">
+            <!-- Header se inyecta dinámicamente aquí -->
+            <div class="view-container">
+                
+                <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
+                    
+                    <!-- Configuración del Negocio -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Parámetros del Negocio</h3>
+                        </div>
+                        <form id="config-form-negocio">
+                            <div class="form-group">
+                                <label for="config-empresa">Nombre de la Empresa / Atelier</label>
+                                <input type="text" id="config-empresa" class="form-control" required>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="config-igv">Tasa del IGV (ej. 0.18)</label>
+                                    <input type="number" id="config-igv" class="form-control" step="0.01" min="0" max="1" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="config-moneda">Moneda Comercial (ISO)</label>
+                                    <input type="text" id="config-moneda" class="form-control" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Guardar Parámetros</button>
+                        </form>
+                    </div>
+
+                    <!-- Conexión a Base de Datos Supabase -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Conexión Supabase (PostgreSQL)</h3>
+                        </div>
+                        <form id="config-form-database">
+                            <div class="form-group" style="display:flex; align-items:center; gap:12px;">
+                                <input type="checkbox" id="config-use-supabase" style="width:20px; height:20px; cursor:pointer;">
+                                <label for="config-use-supabase" style="margin-bottom:0; cursor:pointer;">Activar Conexión remota a Supabase</label>
+                            </div>
+                            <div class="form-group">
+                                <label for="config-supabase-url">URL del Proyecto Supabase</label>
+                                <input type="url" id="config-supabase-url" class="form-control" placeholder="https://xxxx.supabase.co">
+                            </div>
+                            <div class="form-group">
+                                <label for="config-supabase-key">Anon / Publishable Key</label>
+                                <input type="password" id="config-supabase-key" class="form-control" placeholder="sb_publishable_xxxx">
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="btn-save-db-config">Establecer y Probar Conexión</button>
+                        </form>
+                        
+                        <hr style="border-color:var(--border); margin:24px 0;">
+                        <h4 style="margin-bottom:12px;">Mantenimiento y Reseteo</h4>
+                        <div style="display:flex; gap:12px;">
+                            <button class="btn btn-danger" id="btn-config-reset-local"><i class="fa-solid fa-trash-can"></i> Reiniciar Base de Datos Local</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- CARGA DE SCRIPTS -->
+    <script src="database.js"></script>
+    <script src="layout.js"></script>
+    <script src="js/configuracion.js"></script>
+</body>
+</html>
